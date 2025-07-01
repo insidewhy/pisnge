@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libfontconfig1-dev \
+          libfreetype6-dev \
+          pkg-config \
+          fonts-liberation
+
+    - name: Cache cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Run tests
+      run: cargo test --verbose
+
+    - name: Build release binary
+      run: cargo build --release --verbose
+
+    - name: Strip binary
+      run: strip target/release/pisnge
+
+    - name: Test binary
+      run: |
+        ./target/release/pisnge --help
+
+    - name: Create release artifact
+      if: github.ref == 'refs/heads/main'
+      run: |
+        mkdir -p dist
+        cp target/release/pisnge dist/pisnge-ubuntu-22.04
+        chmod +x dist/pisnge-ubuntu-22.04
+
+    - name: Upload binary artifact
+      if: github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: pisnge-ubuntu-22.04
+        path: |
+          dist/pisnge-ubuntu-22.04
+        retention-days: 90
+
+    - name: Create Release
+      if: github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: build-${{ github.sha }}
+        name: "Build ${{ github.sha }}"
+        body: |
+          Automated build from commit ${{ github.sha }}
+
+          **Ubuntu 22.04 Binary**: `pisnge-ubuntu-22.04`
+
+          ## Usage
+          ```bash
+          # Download and make executable
+          chmod +x pisnge-ubuntu-22.04
+          ./pisnge-ubuntu-22.04 --help
+          ```
+        files: |
+          dist/pisnge-ubuntu-22.04
+        draft: false
+        prerelease: true

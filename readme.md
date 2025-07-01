@@ -12,6 +12,21 @@ A Rust-based diagram rendering library compatible with [mermaidjs](https://merma
 
 ## Installation
 
+### Pre-built Binaries (Ubuntu 22.04)
+
+Download the latest binary from [Releases](../../releases):
+
+```bash
+# Download the binary
+wget https://github.com/insidewhy/pisnge/releases/latest/download/pisnge-ubuntu-22.04
+
+# Make it executable  
+chmod +x pisnge-ubuntu-22.04
+
+# Use it directly
+./pisnge-ubuntu-22.04 --help
+```
+
 ### From crates.io
 
 ```bash
@@ -38,6 +53,12 @@ pisnge -i input.mmd -o output.svg
 pisnge -i chart.mmd -o chart.svg -f svg
 pisnge -i chart.mmd -o chart.png -f png
 
+# Custom font and dimensions
+pisnge -i chart.mmd -o chart.svg --font "Arial" --width 1000 --height 800
+
+# Verbose output
+pisnge -i chart.mmd -o chart.svg --verbose
+
 # If running from source
 cargo run -- -i input.mmd -o output.svg
 ```
@@ -50,8 +71,10 @@ cargo run -- -i input.mmd -o output.svg
 ### Optional Arguments
 
 - `-f, --format`: Output format - "png" or "svg" (defaults to "png")
-- `-w, --width`: Desired maximum width,
-- `-H, --height`: Desired maximum height.
+- `-w, --width`: Desired maximum width
+- `-H, --height`: Desired maximum height
+- `--font`: Font family name (defaults to "Liberation Sans")
+- `-v, --verbose`: Show detailed parsing information
 
 Charts will be rendered up to the maximum of `width`/`height` and the unfilled dimension will be reduced in the output rather than introducing borders into the image.
 
