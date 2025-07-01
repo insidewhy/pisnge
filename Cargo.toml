@@ -1,0 +1,18 @@
+[package]
+name = "pisnge"
+version = "0.1.0"
+edition = "2021"
+description = "A Rust-based diagram rendering library inspired by Mermaid.js, focused on generating SVG pie charts"
+license = "MIT"
+authors = ["insidewhy <github@chilon.net>"]
+keywords = ["mermaid", "diagram", "svg", "pie-chart", "visualization"]
+categories = ["command-line-utilities", "visualization", "parsing"]
+repository = "https://github.com/insidewhy/pisnge"
+readme = "readme.md"
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+nom = "7.1"
+svg = "0.17"
+resvg = "0.45"
+tiny-skia = "0.11"
