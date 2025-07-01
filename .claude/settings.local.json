@@ -6,7 +6,13 @@
       "Bash(cargo run:*)",
       "Bash(cargo:*)",
       "Bash(echo \"Exit code: $?\")",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "WebFetch(domain:rust-lang.github.io)",
+      "WebFetch(domain:doc.rust-lang.org)",
+      "WebFetch(domain:stackoverflow.com)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(./target/debug/pisnge:*)"
     ],
     "deny": []
   }

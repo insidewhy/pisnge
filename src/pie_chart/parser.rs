@@ -1,70 +1,14 @@
 use nom::{
     bytes::complete::{tag, take_until},
-    character::complete::{char, digit1, multispace0, space0},
-    combinator::{map, opt, recognize},
+    character::complete::{multispace0, space0},
+    combinator::opt,
     multi::separated_list0,
-    sequence::{delimited, preceded, tuple},
+    sequence::preceded,
     IResult,
 };
-use std::collections::HashMap;
 
-use crate::{PieChart, PieChartConfig, PieChartData};
-
-fn quoted_string(input: &str) -> IResult<&str, &str> {
-    delimited(char('"'), take_until("\""), char('"'))(input)
-}
-
-fn number(input: &str) -> IResult<&str, f64> {
-    map(
-        recognize(tuple((digit1, opt(tuple((char('.'), digit1)))))),
-        |s: &str| s.parse().unwrap(),
-    )(input)
-}
-
-fn config_line(input: &str) -> IResult<&str, PieChartConfig> {
-    let (input, _) = tag("%%{init: ")(input)?;
-    let (input, config_content) = take_until("}%%")(input)?;
-    let (input, _) = tag("}%%")(input)?;
-
-    let mut theme = "base".to_string();
-    let mut theme_variables = HashMap::new();
-
-    if let Some(theme_start) = config_content.find("'theme': '") {
-        let theme_content = &config_content[theme_start + 10..];
-        if let Some(theme_end) = theme_content.find("'") {
-            theme = theme_content[..theme_end].to_string();
-        }
-    }
-
-    if let Some(vars_start) = config_content.find("'themeVariables': {") {
-        let vars_content = &config_content[vars_start + 19..];
-        if let Some(vars_end) = vars_content.find("}") {
-            let vars_str = &vars_content[..vars_end];
-            for pair in vars_str.split(',') {
-                let pair = pair.trim();
-                if let Some(colon_pos) = pair.find(':') {
-                    let key = pair[..colon_pos]
-                        .trim()
-                        .trim_matches('\'')
-                        .trim_matches('"');
-                    let value = pair[colon_pos + 1..]
-                        .trim()
-                        .trim_matches('\'')
-                        .trim_matches('"');
-                    theme_variables.insert(key.to_string(), value.to_string());
-                }
-            }
-        }
-    }
-
-    Ok((
-        input,
-        PieChartConfig {
-            theme,
-            theme_variables,
-        },
-    ))
-}
+use crate::common::{config_line, number, quoted_string};
+use crate::{PieChart, PieChartData};
 
 fn pie_header(input: &str) -> IResult<&str, (bool, Option<String>)> {
     let (input, _) = tag("pie")(input)?;

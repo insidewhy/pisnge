@@ -1,7 +1,8 @@
 use clap::Parser;
-use pisnge::parser::parse_pie_chart;
+use pisnge::common::parser::{parse_config_and_detect_type, ChartType};
+use pisnge::pie_chart::{parse_pie_chart_content, render_pie_chart_svg};
 use pisnge::png::svg_to_png;
-use pisnge::renderer::render_pie_chart_svg;
+use pisnge::xychart::{parse_xychart_content, render_xychart_svg};
 use std::fs;
 use std::path::Path;
 
@@ -77,60 +78,182 @@ fn main() {
                 format!("{}\n", content)
             };
 
-            match parse_pie_chart(&normalized_content) {
-                Ok((_, pie_chart)) => {
+            // First parse config and detect chart type
+            match parse_config_and_detect_type(&normalized_content) {
+                Ok((_, (config, chart_type, remaining_content))) => {
                     if cli.verbose {
-                        println!("\nParsed pie chart:");
-                        println!("  Show data: {}", pie_chart.show_data);
-                        if let Some(title) = &pie_chart.title {
-                            println!("  Title: {}", title);
-                        }
-                        println!("  Data entries: {}", pie_chart.data.len());
-                        for entry in &pie_chart.data {
-                            println!("    \"{}\": {}", entry.label, entry.value);
+                        println!("\nDetected chart type: {:?}", chart_type);
+                        if let Some(ref config) = config {
+                            println!("Theme: {}", config.theme);
+                            if !config.theme_variables.is_empty() {
+                                println!("Theme variables: {:?}", config.theme_variables);
+                            }
                         }
                     }
 
-                    match output_format.as_str() {
-                        "svg" => {
-                            let (svg_document, _) =
-                                render_pie_chart_svg(&pie_chart, cli.width, cli.height, &cli.font);
-                            match fs::write(&cli.output, svg_document.to_string()) {
-                                Ok(_) => println!("SVG saved to: {}", cli.output),
+                    match chart_type {
+                        ChartType::Pie => {
+                            match parse_pie_chart_content(remaining_content, config) {
+                                Ok((_, pie_chart)) => {
+                                    if cli.verbose {
+                                        println!("\nParsed pie chart:");
+                                        println!("  Show data: {}", pie_chart.show_data);
+                                        if let Some(title) = &pie_chart.title {
+                                            println!("  Title: {}", title);
+                                        }
+                                        println!("  Data entries: {}", pie_chart.data.len());
+                                        for entry in &pie_chart.data {
+                                            println!("    \"{}\": {}", entry.label, entry.value);
+                                        }
+                                    }
+
+                                    match output_format.as_str() {
+                                        "svg" => {
+                                            let (svg_document, _) = render_pie_chart_svg(
+                                                &pie_chart, cli.width, cli.height, &cli.font,
+                                            );
+                                            match fs::write(&cli.output, svg_document.to_string()) {
+                                                Ok(_) => println!("SVG saved to: {}", cli.output),
+                                                Err(e) => {
+                                                    eprintln!("Failed to write SVG file: {}", e);
+                                                    std::process::exit(1);
+                                                }
+                                            }
+                                        }
+                                        "png" => {
+                                            let (svg_document, actual_height) =
+                                                render_pie_chart_svg(
+                                                    &pie_chart, cli.width, cli.height, &cli.font,
+                                                );
+                                            match svg_to_png(
+                                                &svg_document.to_string(),
+                                                cli.width,
+                                                actual_height,
+                                            ) {
+                                                Ok(png_data) => {
+                                                    match fs::write(&cli.output, png_data) {
+                                                        Ok(_) => {
+                                                            println!("PNG saved to: {}", cli.output)
+                                                        }
+                                                        Err(e) => {
+                                                            eprintln!(
+                                                                "Failed to write PNG file: {}",
+                                                                e
+                                                            );
+                                                            std::process::exit(1);
+                                                        }
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    eprintln!(
+                                                        "Failed to convert SVG to PNG: {}",
+                                                        e
+                                                    );
+                                                    std::process::exit(1);
+                                                }
+                                            }
+                                        }
+                                        _ => {
+                                            eprintln!(
+                                                "Unsupported format: {}. Supported formats: png, svg",
+                                                output_format
+                                            );
+                                            std::process::exit(1);
+                                        }
+                                    }
+                                }
                                 Err(e) => {
-                                    eprintln!("Failed to write SVG file: {}", e);
+                                    eprintln!("Failed to parse pie chart: {:?}", e);
                                     std::process::exit(1);
                                 }
                             }
                         }
-                        "png" => {
-                            let (svg_document, actual_height) =
-                                render_pie_chart_svg(&pie_chart, cli.width, cli.height, &cli.font);
-                            match svg_to_png(&svg_document.to_string(), cli.width, actual_height) {
-                                Ok(png_data) => match fs::write(&cli.output, png_data) {
-                                    Ok(_) => println!("PNG saved to: {}", cli.output),
-                                    Err(e) => {
-                                        eprintln!("Failed to write PNG file: {}", e);
+                        ChartType::XY => match parse_xychart_content(remaining_content, config) {
+                            Ok((_, xychart)) => {
+                                if cli.verbose {
+                                    println!("\nParsed XY chart:");
+                                    if let Some(title) = &xychart.title {
+                                        println!("  Title: {}", title);
+                                    }
+                                    println!("  X-axis labels: {:?}", xychart.x_axis.labels);
+                                    println!(
+                                        "  Y-axis: \"{}\" {} -> {}",
+                                        xychart.y_axis.title,
+                                        xychart.y_axis.min,
+                                        xychart.y_axis.max
+                                    );
+                                    println!("  Series count: {}", xychart.series.len());
+                                    for (i, series) in xychart.series.iter().enumerate() {
+                                        println!(
+                                            "    Series {}: {:?} {:?}",
+                                            i, series.series_type, series.data
+                                        );
+                                    }
+                                }
+
+                                match output_format.as_str() {
+                                    "svg" => {
+                                        let (svg_document, _) = render_xychart_svg(
+                                            &xychart, cli.width, cli.height, &cli.font,
+                                        );
+                                        match fs::write(&cli.output, svg_document.to_string()) {
+                                            Ok(_) => println!("SVG saved to: {}", cli.output),
+                                            Err(e) => {
+                                                eprintln!("Failed to write SVG file: {}", e);
+                                                std::process::exit(1);
+                                            }
+                                        }
+                                    }
+                                    "png" => {
+                                        let (svg_document, actual_height) = render_xychart_svg(
+                                            &xychart, cli.width, cli.height, &cli.font,
+                                        );
+                                        match svg_to_png(
+                                            &svg_document.to_string(),
+                                            cli.width,
+                                            actual_height,
+                                        ) {
+                                            Ok(png_data) => {
+                                                match fs::write(&cli.output, png_data) {
+                                                    Ok(_) => {
+                                                        println!("PNG saved to: {}", cli.output)
+                                                    }
+                                                    Err(e) => {
+                                                        eprintln!(
+                                                            "Failed to write PNG file: {}",
+                                                            e
+                                                        );
+                                                        std::process::exit(1);
+                                                    }
+                                                }
+                                            }
+                                            Err(e) => {
+                                                eprintln!("Failed to convert SVG to PNG: {}", e);
+                                                std::process::exit(1);
+                                            }
+                                        }
+                                    }
+                                    _ => {
+                                        eprintln!(
+                                            "Unsupported format: {}. Supported formats: png, svg",
+                                            output_format
+                                        );
                                         std::process::exit(1);
                                     }
-                                },
-                                Err(e) => {
-                                    eprintln!("Failed to convert SVG to PNG: {}", e);
-                                    std::process::exit(1);
                                 }
                             }
-                        }
-                        _ => {
-                            eprintln!(
-                                "Unsupported format: {}. Supported formats: png, svg",
-                                output_format
-                            );
-                            std::process::exit(1);
-                        }
+                            Err(e) => {
+                                eprintln!("Failed to parse XY chart: {:?}", e);
+                                std::process::exit(1);
+                            }
+                        },
                     }
                 }
                 Err(e) => {
-                    eprintln!("Failed to parse pie chart: {:?}", e);
+                    eprintln!(
+                        "Failed to parse chart (unknown type or invalid config): {:?}",
+                        e
+                    );
                     std::process::exit(1);
                 }
             }
