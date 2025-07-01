@@ -20,6 +20,12 @@ struct Cli {
 
     #[arg(short, long)]
     verbose: bool,
+
+    #[arg(short, long, default_value = "800")]
+    width: u32,
+
+    #[arg(short = 'H', long, default_value = "600")]
+    height: u32,
 }
 
 fn detect_format_from_extension(output_path: &str) -> Option<String> {
@@ -76,7 +82,7 @@ fn main() {
 
                 match output_format.as_str() {
                     "svg" => {
-                        let svg_document = render_pie_chart_svg(&pie_chart, 647, 450);
+                        let svg_document = render_pie_chart_svg(&pie_chart, cli.width, cli.height);
                         match fs::write(&cli.output, svg_document.to_string()) {
                             Ok(_) => println!("SVG saved to: {}", cli.output),
                             Err(e) => {
@@ -86,8 +92,8 @@ fn main() {
                         }
                     }
                     "png" => {
-                        let svg_document = render_pie_chart_svg(&pie_chart, 647, 450);
-                        match svg_to_png(&svg_document.to_string(), 647, 450) {
+                        let svg_document = render_pie_chart_svg(&pie_chart, cli.width, cli.height);
+                        match svg_to_png(&svg_document.to_string(), cli.width, cli.height) {
                             Ok(png_data) => match fs::write(&cli.output, png_data) {
                                 Ok(_) => println!("PNG saved to: {}", cli.output),
                                 Err(e) => {

@@ -11,12 +11,26 @@ const DEFAULT_COLORS: [&str; 10] = [
 pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Document {
     // Calculate the actual legend width needed
     let legend_width = calculate_legend_width(pie_chart);
-    let legend_margin = 15.0; // Closer spacing between chart and legend
-    let chart_area_width = width as f64 - legend_width - legend_margin;
+    let legend_margin = 25.0; // Spacing between chart and legend
+    let title_space = if pie_chart.title.is_some() {
+        40.0
+    } else {
+        20.0
+    }; // Space above/below title
+    let bottom_margin = 20.0; // Bottom margin
 
-    let center_x = chart_area_width / 2.0;
-    let center_y = (height as f64 / 2.0) + 20.0; // Move down by 20px
-    let radius = (chart_area_width.min(height as f64) / 2.0) * 0.85; // Larger pie chart
+    // Calculate available space for the pie chart
+    let chart_area_width = width as f64 - legend_width - legend_margin;
+    let chart_area_height = height as f64 - title_space - bottom_margin;
+
+    // Use reasonable amount of available space
+    let max_radius = (chart_area_width.min(chart_area_height) / 2.0) * 0.85;
+
+    // Add modest left margin to shift right
+    let left_margin = 30.0; // Add left margin
+    let center_x = left_margin + (chart_area_width - left_margin) / 2.0;
+    let center_y = (height as f64 / 2.0) + (title_space / 2.0) - (bottom_margin / 2.0);
+    let radius = max_radius;
 
     let total: f64 = pie_chart.data.iter().map(|d| d.value).sum();
 
@@ -24,7 +38,10 @@ pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Do
         .set("viewBox", (0, 0, width, height))
         .set("width", "100%")
         .set("xmlns", "http://www.w3.org/2000/svg")
-        .set("style", "max-width: 647.141px; background-color: white;");
+        .set(
+            "style",
+            format!("max-width: {}px; background-color: white;", width),
+        );
 
     // Get theme variables with defaults
     let pie_opacity = get_theme_variable(pie_chart, "pieOpacity", "0.7");
@@ -167,10 +184,10 @@ pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Do
 
 fn calculate_legend_width(pie_chart: &PieChart) -> f64 {
     let font_size = 17.0;
-    let char_width = font_size * 0.6; // Approximate character width
+    let char_width = font_size * 0.58;
     let icon_width = 18.0; // Width of the color rectangle
     let icon_margin = 22.0; // Space between icon and text
-    let margin = 5.0; // Smaller right margin from edge
+    let margin = 10.0; // Smaller right margin
 
     // Find the longest legend text
     let max_text_length = pie_chart
