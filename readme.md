@@ -1,15 +1,14 @@
 # Pisnge
 
-A Rust-based diagram rendering library inspired by Mermaid.js, focused on generating SVG pie charts from Mermaid syntax.
+A Rust-based diagram rendering library compatible with [mermaidjs](https://mermaid.js.org).
 
 ## Features
 
 - **Mermaid Compatibility**: Parses Mermaid pie chart syntax (.mmd files)
 - **SVG Output**: Generates clean, scalable SVG files with full text support
 - **PNG Output**: Generates raster PNG files with full text support
-- **Theme Support**: Supports Mermaid theme configuration with custom colors
-- **Default Colors**: Uses Mermaid's default D3 schemeCategory10 color palette
 - **CLI Interface**: Simple command-line tool for batch processing
+- **Fast**: Much faster, smaller and more memory efficient than mermaid, does not need puppeteer
 
 ## Installation
 
@@ -51,12 +50,16 @@ cargo run -- -i input.mmd -o output.svg
 ### Optional Arguments
 
 - `-f, --format`: Output format - "png" or "svg" (defaults to "png")
+- `-w, --width`: Desired maximum width,
+- `-H, --height`: Desired maximum height.
+
+Charts will be rendered up to the maximum of `width`/`height` and the unfilled dimension will be reduced in the output rather than introducing borders into the image.
 
 ## Mermaid Syntax Support
 
 ### Basic Pie Chart
 
-```mermaid
+```
 pie title My Pie Chart
     "Label 1": 42
     "Label 2": 30
@@ -65,7 +68,7 @@ pie title My Pie Chart
 
 ### With Data Display
 
-```mermaid
+```
 pie showData title Story Points by Status
     "Done": 262
     "To Do": 129
@@ -74,8 +77,8 @@ pie showData title Story Points by Status
 
 ### With Theme Configuration
 
-```mermaid
-%%{init: {'theme': 'dark', 'themeVariables': {'pie1': '#ff6b6b', 'pie2': '#4ecdc4'}}}%%
+```
+%%{init: {'theme': 'base', 'themeVariables': {'pie1': '#ff6b6b', 'pie2': '#4ecdc4'}}}%%
 pie showData title Custom Colors
     "Category A": 60
     "Category B": 40
@@ -99,7 +102,7 @@ cargo run -- -i examples/storypoints-by-status-pie.mmd -o output.svg
 
 This project currently only supports pie charts and all mermaid options should be supported, however only the `base` theme is supported and the default colors are different.
 
-The pie chart segments are rendered in the order they are specified rather than from biggest to smallest, and the spacing is better since font widths/heights can be measured directly.
+The pie chart segments are rendered in the order they are specified rather than from biggest to smallest, and the overall spacing is better since font widths/heights are measured directly.
 
 ## Development
 
@@ -118,10 +121,12 @@ cargo build
 ## Dependencies
 
 - `clap`: Command-line argument parsing
-- `nom`: Parser combinator for Mermaid syntax
+- `nom`: Parser combinator used to parse mmd syntax
 - `svg`: SVG generation
 - `resvg`: SVG to PNG conversion
 - `tiny-skia`: 2D graphics rasterization
+- `font-kit`: For loading system fonts
+- `rusttype`: For measuring text widths/heights
 
 ## License
 
@@ -135,4 +140,5 @@ Contributions welcome! This library currently focuses on pie charts but could be
 
 - [x] PNG output format
 - [ ] Additional Mermaid diagram types (xy chart is planned soon)
+- [ ] New diagram types not supported by mermaid
 - [ ] More theming options than provided by mermaid
