@@ -1,9 +1,9 @@
 use nom::{
     bytes::complete::{tag, take_until},
     character::complete::{char, digit1, multispace0, space0},
-    combinator::{map, opt},
+    combinator::{map, opt, recognize},
     multi::separated_list0,
-    sequence::{delimited, preceded},
+    sequence::{delimited, preceded, tuple},
     IResult,
 };
 use std::collections::HashMap;
@@ -14,8 +14,11 @@ fn quoted_string(input: &str) -> IResult<&str, &str> {
     delimited(char('"'), take_until("\""), char('"'))(input)
 }
 
-fn number(input: &str) -> IResult<&str, u32> {
-    map(digit1, |s: &str| s.parse().unwrap())(input)
+fn number(input: &str) -> IResult<&str, f64> {
+    map(
+        recognize(tuple((digit1, opt(tuple((char('.'), digit1)))))),
+        |s: &str| s.parse().unwrap(),
+    )(input)
 }
 
 fn config_line(input: &str) -> IResult<&str, PieChartConfig> {
@@ -145,6 +148,6 @@ pie showData title Story points by status
         assert_eq!(pie_chart.title, Some("Story points by status".to_string()));
         assert_eq!(pie_chart.data.len(), 6);
         assert_eq!(pie_chart.data[0].label, "Done");
-        assert_eq!(pie_chart.data[0].value, 262);
+        assert_eq!(pie_chart.data[0].value, 262.0);
     }
 }

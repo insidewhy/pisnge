@@ -4,7 +4,9 @@
       "Bash(ls:*)",
       "WebFetch(domain:docs.rs)",
       "Bash(cargo run:*)",
-      "Bash(cargo:*)"
+      "Bash(cargo:*)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(rg:*)"
     ],
     "deny": []
   }

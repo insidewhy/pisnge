@@ -18,7 +18,7 @@ pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Do
     let center_y = (height as f64 / 2.0) + 20.0; // Move down by 20px
     let radius = (chart_area_width.min(height as f64) / 2.0) * 0.85; // Larger pie chart
 
-    let total: u32 = pie_chart.data.iter().map(|d| d.value).sum();
+    let total: f64 = pie_chart.data.iter().map(|d| d.value).sum();
 
     let mut document = Document::new()
         .set("viewBox", (0, 0, width, height))
@@ -68,7 +68,7 @@ pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Do
     let mut current_angle = -PI / 2.0;
 
     for (i, data) in pie_chart.data.iter().enumerate() {
-        let slice_angle = (data.value as f64 / total as f64) * 2.0 * PI;
+        let slice_angle = (data.value / total) * 2.0 * PI;
         let end_angle = current_angle + slice_angle;
 
         let color = get_color_for_slice(pie_chart, i);
@@ -88,7 +88,7 @@ pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Do
             let label_x = label_radius * mid_angle.cos();
             let label_y = label_radius * mid_angle.sin();
 
-            let percentage = ((data.value as f64 / total as f64) * 100.0).round() as u32;
+            let percentage = ((data.value / total) * 100.0).round();
 
             main_group = main_group.add(
                 Text::new(format!("{}%", percentage))

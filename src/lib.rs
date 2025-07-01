@@ -9,7 +9,7 @@ pub struct PieChartConfig {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PieChartData {
     pub label: String,
-    pub value: u32,
+    pub value: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]

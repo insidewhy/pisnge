@@ -79,7 +79,10 @@ fn main() {
                         let svg_document = render_pie_chart_svg(&pie_chart, 647, 450);
                         match fs::write(&cli.output, svg_document.to_string()) {
                             Ok(_) => println!("SVG saved to: {}", cli.output),
-                            Err(e) => eprintln!("Failed to write SVG file: {}", e),
+                            Err(e) => {
+                                eprintln!("Failed to write SVG file: {}", e);
+                                std::process::exit(1);
+                            }
                         }
                     }
                     "png" => {
@@ -87,9 +90,15 @@ fn main() {
                         match svg_to_png(&svg_document.to_string(), 647, 450) {
                             Ok(png_data) => match fs::write(&cli.output, png_data) {
                                 Ok(_) => println!("PNG saved to: {}", cli.output),
-                                Err(e) => eprintln!("Failed to write PNG file: {}", e),
+                                Err(e) => {
+                                    eprintln!("Failed to write PNG file: {}", e);
+                                    std::process::exit(1);
+                                }
                             },
-                            Err(e) => eprintln!("Failed to convert SVG to PNG: {}", e),
+                            Err(e) => {
+                                eprintln!("Failed to convert SVG to PNG: {}", e);
+                                std::process::exit(1);
+                            }
                         }
                     }
                     _ => {
@@ -101,8 +110,14 @@ fn main() {
                     }
                 }
             }
-            Err(e) => eprintln!("Failed to parse pie chart: {:?}", e),
+            Err(e) => {
+                eprintln!("Failed to parse pie chart: {:?}", e);
+                std::process::exit(1);
+            }
         },
-        Err(e) => eprintln!("Failed to read input file: {}", e),
+        Err(e) => {
+            eprintln!("Failed to read input file: {}", e);
+            std::process::exit(1);
+        }
     }
 }
