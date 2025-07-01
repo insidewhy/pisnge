@@ -57,9 +57,41 @@ pub fn render_xychart_svg(
         label_font_size as f64 * 0.6 * 2.0 // Assume max 2 characters
     };
 
+    // Check if we'll need vertical labels to calculate proper spacing
+    let should_use_vertical_labels = if let Some(ref font_data) = font_data {
+        let num_categories = xychart.x_axis.labels.len();
+        let estimated_category_width =
+            (width as f64 - (margin * 2.0) - (max_y_label_width + 35.0)) / num_categories as f64;
+        check_label_overlap(
+            &xychart.x_axis.labels,
+            estimated_category_width,
+            font_data,
+            label_font_size,
+        )
+    } else {
+        false
+    };
+
+    // Calculate the maximum label width for vertical labels
+    let max_x_label_width = if should_use_vertical_labels && font_data.is_some() {
+        let font_data = font_data.as_ref().unwrap();
+        xychart
+            .x_axis
+            .labels
+            .iter()
+            .map(|label| measure_text_width(label, font_data, label_font_size) as f64)
+            .fold(0.0, f64::max)
+    } else {
+        0.0
+    };
+
     // Space needed for axes
     let y_axis_label_space = max_y_label_width + 35.0; // Measured label width + space for title and margins
-    let x_axis_label_space = 40.0; // Space for X-axis labels
+    let x_axis_label_space = if should_use_vertical_labels {
+        max_x_label_width + 20.0 // Width of longest label + margin
+    } else {
+        40.0 // Space for horizontal X-axis labels
+    };
 
     // Calculate available space for the chart area
     let chart_width = width as f64 - (margin * 2.0) - y_axis_label_space;
@@ -189,6 +221,13 @@ pub fn render_xychart_svg(
         ),
     ));
 
+    // Calculate label height for vertical labels if needed
+    let label_height = if let Some(ref font_data) = font_data {
+        measure_text_height(font_data, label_font_size) as f64
+    } else {
+        label_font_size as f64
+    };
+
     // X-axis labels and ticks
     let mut x_labels_group = Group::new().set("class", "label");
     let mut x_ticks_group = Group::new().set("class", "ticks");
@@ -196,15 +235,34 @@ pub fn render_xychart_svg(
     for (i, label) in xychart.x_axis.labels.iter().enumerate() {
         let x = chart_left + i as f64 * category_width + category_width / 2.0;
 
-        // Label
-        x_labels_group = x_labels_group.add(
-            Text::new(label)
-                .set("class", "axis-label")
-                .set("x", x)
-                .set("y", chart_bottom + 20.0)
-                .set("text-anchor", "middle")
-                .set("dominant-baseline", "text-before-edge"),
-        );
+        // Label - adjust positioning based on orientation
+        if should_use_vertical_labels {
+            x_labels_group = x_labels_group.add(
+                Text::new(label)
+                    .set("class", "axis-label")
+                    .set("x", x)
+                    .set("y", chart_bottom + 10.0 + label_height / 2.0)
+                    .set("text-anchor", "end")
+                    .set("dominant-baseline", "middle")
+                    .set(
+                        "transform",
+                        format!(
+                            "rotate(-90, {}, {})",
+                            x,
+                            chart_bottom + 10.0 + label_height / 2.0
+                        ),
+                    ),
+            );
+        } else {
+            x_labels_group = x_labels_group.add(
+                Text::new(label)
+                    .set("class", "axis-label")
+                    .set("x", x)
+                    .set("y", chart_bottom + 20.0)
+                    .set("text-anchor", "middle")
+                    .set("dominant-baseline", "text-before-edge"),
+            );
+        }
 
         // Tick
         x_ticks_group = x_ticks_group.add(Path::new().set("class", "tick").set(
@@ -300,6 +358,24 @@ fn get_theme_variable<'a>(xychart: &'a XYChart, key: &str, default: &'a str) -> 
         }
     }
     default
+}
+
+fn check_label_overlap(
+    labels: &[String],
+    category_width: f64,
+    font_data: &[u8],
+    font_size: f32,
+) -> bool {
+    let min_gap = 5.0; // Minimum gap between labels in pixels
+
+    for label in labels.iter() {
+        let label_width = measure_text_width(label, font_data, font_size) as f64;
+        // If any label width + minimum gap exceeds category width, we need vertical labels
+        if label_width + min_gap > category_width {
+            return true;
+        }
+    }
+    false
 }
 
 fn get_color_for_series(xychart: &XYChart, index: usize) -> &str {

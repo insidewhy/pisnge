@@ -80,7 +80,7 @@ Charts will be rendered up to the maximum of `width`/`height` and the unfilled d
 
 ## Mermaid Syntax Support
 
-### Basic Pie Chart
+### Pie Chart
 
 ```
 pie title My Pie Chart
@@ -89,7 +89,7 @@ pie title My Pie Chart
     "Label 3": 28
 ```
 
-### With Data Display
+#### With Data Display
 
 ```
 pie showData title Story Points by Status
@@ -98,7 +98,7 @@ pie showData title Story Points by Status
     "In Progress": 87
 ```
 
-### With Theme Configuration
+#### With Theme Configuration
 
 ```
 %%{init: {'theme': 'base', 'themeVariables': {'pie1': '#ff6b6b', 'pie2': '#4ecdc4'}}}%%
@@ -115,6 +115,30 @@ pisnge -i examples/storypoints-by-status-pie.mmd -o output.svg
 cargo run -- -i examples/storypoints-by-status-pie.mmd -o output.svg
 ```
 
+### XY Chart
+
+```
+xychart-beta
+  title "Issues in review or ready for QA"
+  x-axis [PJ-213, PJ-341, PJ-481, PJ-482, PJ-420]
+  y-axis "Number of days in status" 0 --> 10
+  bar [2, 0, 6, 8, 9]
+  bar [8.5, 7, 5, 3, 1]
+```
+
+#### With Theme Configuration
+
+```
+%%{init: {'theme': 'base', 'themeVariables': {"xyChart":{"plotColorPalette":"#ff8b00, #9c1de9"}}}}%%
+xychart-beta
+  title "Issues in review or ready for QA"
+  x-axis [NP-213, NP-341, NP-481, NP-482, NP-420]
+  y-axis "Number of days in status" 0 --> 10
+  bar [2, 0, 6, 8, 9]
+  bar [8.5, 7, 5, 3, 1]
+```
+
+
 ## Architecture
 
 - **Parser** (`src/parser.rs`): Uses nom to parse Mermaid pie chart syntax
@@ -123,9 +147,23 @@ cargo run -- -i examples/storypoints-by-status-pie.mmd -o output.svg
 
 ## Differences to Mermaid
 
-This project currently only supports pie charts and all mermaid options should be supported, however only the `base` theme is supported and the default colors are different.
+This project currently only supports two types of charts and for all charts only the `base` theme is supported and the default colors are different.
+
+### Pie Charts
 
 The pie chart segments are rendered in the order they are specified rather than from biggest to smallest, and the overall spacing is better since font widths/heights are measured directly.
+
+### XY Charts
+
+Only bar series are currently supported, the tallest bars are always drawn first to ensure that bars don't get entirely covered.
+Bars can have a height of `0`, unlike mermaid, which will cause them not to be drawn (mermaid will draw a short bar in this circumstance).
+When `pisnge` detects that x-axis labels overlap each other it will automatically switch their orientation to be vertical.
+
+Only a limited number of theme variables are currently supported:
+
+- `titleFontSize`
+- `labelFontSize`
+- `plotColorPalette`
 
 ## Development
 
