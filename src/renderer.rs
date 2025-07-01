@@ -1,3 +1,4 @@
+use crate::font::{load_system_font_bytes, measure_text_height, measure_text_width};
 use crate::PieChart;
 use std::f64::consts::PI;
 use svg::node::element::{Circle, Group, Path, Rectangle, Style, Text};
@@ -8,35 +9,75 @@ const DEFAULT_COLORS: [&str; 10] = [
     "#bcbd22", "#17becf",
 ];
 
-pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Document {
+pub fn render_pie_chart_svg(
+    pie_chart: &PieChart,
+    width: u32,
+    height: u32,
+    font_name: &str,
+) -> (Document, u32) {
+    // Load font data once for both title and legend calculations
+    let font_data = load_system_font_bytes(font_name);
+
     // Calculate the actual legend width needed
-    let legend_width = calculate_legend_width(pie_chart);
-    let legend_margin = 25.0; // Spacing between chart and legend
-    let title_space = if pie_chart.title.is_some() {
-        40.0
+    let legend_width = calculate_legend_width(pie_chart, &font_data);
+
+    // Calculate title height and spacing
+    let (title_height, title_to_chart_gap) = if pie_chart.title.is_some() {
+        let title_font_size = parse_font_size(
+            get_theme_variable(pie_chart, "pieTitleTextSize", "25px"),
+            25.0,
+        );
+
+        let text_height = if let Some(ref font_data) = font_data {
+            measure_text_height(font_data, title_font_size) as f64
+        } else {
+            title_font_size as f64
+        };
+        (text_height, 20.0) // Title height + gap between title and chart
     } else {
-        20.0
-    }; // Space above/below title
-    let bottom_margin = 20.0; // Bottom margin
+        (0.0, 0.0) // No title, no gap
+    };
 
-    // Calculate available space for the pie chart
-    let chart_area_width = width as f64 - legend_width - legend_margin;
-    let chart_area_height = height as f64 - title_space - bottom_margin;
+    // Use consistent margins and spacing
+    let vertical_margin = 35.0; // Equal top and bottom margin
+    let side_margin = 30.0; // Equal left and right margin
+    let chart_to_legend_gap = 20.0; // Gap between chart and legend
 
-    // Use reasonable amount of available space
-    let max_radius = (chart_area_width.min(chart_area_height) / 2.0) * 0.85;
+    // Calculate available space for the pie chart (width-constrained)
+    let available_chart_width =
+        width as f64 - (side_margin * 2.0) - legend_width - chart_to_legend_gap;
 
-    // Add modest left margin to shift right
-    let left_margin = 30.0; // Add left margin
-    let center_x = left_margin + (chart_area_width - left_margin) / 2.0;
-    let center_y = (height as f64 / 2.0) + (title_space / 2.0) - (bottom_margin / 2.0);
-    let radius = max_radius;
+    // Calculate optimal radius based on width only (let height grow as needed)
+    let radius = (available_chart_width / 2.0) * 0.9;
+
+    // Calculate the actual height needed based on optimized content
+    let legend_height = pie_chart.data.len() as f64 * 22.0; // 22px per legend item
+    let chart_diameter = radius * 2.0;
+    let content_height = chart_diameter.max(legend_height);
+    let optimal_height = vertical_margin * 2.0 + title_height + title_to_chart_gap + content_height;
+
+    // If optimal height exceeds CLI height, apply height constraint
+    let (final_radius, actual_height) = if optimal_height > height as f64 {
+        let available_chart_height =
+            height as f64 - (vertical_margin * 2.0) - title_height - title_to_chart_gap;
+        let constrained_radius =
+            ((available_chart_width / 2.0).min(available_chart_height / 2.0)) * 0.9;
+        (constrained_radius, height as f64)
+    } else {
+        (radius, optimal_height)
+    };
+
+    // Position elements
+    let center_x = side_margin + available_chart_width / 2.0;
+    let final_content_height = (final_radius * 2.0).max(legend_height);
+    let center_y = vertical_margin + title_height + title_to_chart_gap + final_content_height / 2.0;
 
     let total: f64 = pie_chart.data.iter().map(|d| d.value).sum();
 
     let mut document = Document::new()
-        .set("viewBox", (0, 0, width, height))
+        .set("viewBox", (0, 0, width, actual_height as u32))
         .set("width", "100%")
+        .set("height", actual_height as u32)
         .set("xmlns", "http://www.w3.org/2000/svg")
         .set(
             "style",
@@ -60,9 +101,9 @@ pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Do
         r#"
         .pieCircle {{ stroke: {}; stroke-width: {}; opacity: {}; }}
         .pieOuterCircle {{ stroke: {}; stroke-width: {}; fill: none; }}
-        .pieTitleText {{ text-anchor: middle; font-size: {}; fill: {}; font-family: "Liberation Sans", "DejaVu Sans", "Noto Sans", sans-serif; }}
-        .slice {{ font-family: "Liberation Sans", "DejaVu Sans", "Noto Sans", sans-serif; fill: {}; font-size: {}; text-anchor: middle; }}
-        .legend text {{ fill: {}; font-family: "Liberation Sans", "DejaVu Sans", "Noto Sans", sans-serif; font-size: {}; }}
+        .pieTitleText {{ text-anchor: middle; font-size: {}; fill: {}; font-family: "{}", sans-serif; }}
+        .slice {{ font-family: "{}", sans-serif; fill: {}; font-size: {}; text-anchor: middle; }}
+        .legend text {{ fill: {}; font-family: "{}", sans-serif; font-size: {}; }}
     "#,
         pie_stroke_color,
         pie_stroke_width,
@@ -71,9 +112,12 @@ pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Do
         pie_outer_stroke_width,
         pie_title_text_size,
         pie_title_text_color,
+        font_name,
+        font_name,
         pie_section_text_color,
         pie_section_text_size,
         pie_legend_text_color,
+        font_name,
         pie_legend_text_size
     ));
 
@@ -90,7 +134,7 @@ pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Do
 
         let color = get_color_for_slice(pie_chart, i);
 
-        let path_data = create_pie_slice_path(0.0, 0.0, radius, current_angle, end_angle);
+        let path_data = create_pie_slice_path(0.0, 0.0, final_radius, current_angle, end_angle);
 
         main_group = main_group.add(
             Path::new()
@@ -101,22 +145,23 @@ pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Do
 
         if pie_chart.show_data {
             let mid_angle = current_angle + slice_angle / 2.0;
-            let label_radius = radius * 0.75;
+            let label_radius = final_radius * 0.75;
             let label_x = label_radius * mid_angle.cos();
             let label_y = label_radius * mid_angle.sin();
 
             let percentage = ((data.value / total) * 100.0).round();
 
+            let section_font_size = parse_font_size(
+                get_theme_variable(pie_chart, "pieSectionTextSize", "17px"),
+                17.0,
+            );
             main_group = main_group.add(
                 Text::new(format!("{}%", percentage))
                     .set("class", "slice")
                     .set("x", label_x)
                     .set("y", label_y)
-                    .set(
-                        "font-family",
-                        "Liberation Sans, DejaVu Sans, Noto Sans, sans-serif",
-                    )
-                    .set("font-size", "17")
+                    .set("font-family", format!("{}, sans-serif", font_name))
+                    .set("font-size", section_font_size.to_string())
                     .set("text-anchor", "middle")
                     .set("dominant-baseline", "central"),
             );
@@ -129,7 +174,7 @@ pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Do
     main_group = main_group.add(
         Circle::new()
             .set("class", "pieOuterCircle")
-            .set("r", radius)
+            .set("r", final_radius)
             .set("cx", 0)
             .set("cy", 0),
     );
@@ -139,18 +184,15 @@ pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Do
             Text::new(title.clone())
                 .set("class", "pieTitleText")
                 .set("x", 0)
-                .set("y", -radius - 30.0)
-                .set(
-                    "font-family",
-                    "Liberation Sans, DejaVu Sans, Noto Sans, sans-serif",
-                )
+                .set("y", -final_radius - 30.0)
+                .set("font-family", format!("{}, sans-serif", font_name))
                 .set("text-anchor", "middle"),
         );
     }
 
-    // Add legend outside the main group, positioned in the reserved space
+    // Add legend outside the main group, positioned with consistent right margin
     for (i, data) in pie_chart.data.iter().enumerate() {
-        let legend_x = chart_area_width + legend_margin; // Start of legend area with proper spacing
+        let legend_x = width as f64 - side_margin - legend_width; // Start of legend area with right margin
         let legend_y = center_y - (pie_chart.data.len() as f64 * 11.0) + (i as f64 * 22.0);
         let color = get_color_for_slice(pie_chart, i);
 
@@ -170,34 +212,48 @@ pub fn render_pie_chart_svg(pie_chart: &PieChart, width: u32, height: u32) -> Do
                 Text::new(format!("{} [{}]", data.label, data.value))
                     .set("x", 22)
                     .set("y", 14)
-                    .set(
-                        "font-family",
-                        "Liberation Sans, DejaVu Sans, Noto Sans, sans-serif",
-                    ),
+                    .set("font-family", format!("{}, sans-serif", font_name)),
             );
 
         document = document.add(legend_group);
     }
 
-    document.add(main_group)
+    (document.add(main_group), actual_height as u32)
 }
 
-fn calculate_legend_width(pie_chart: &PieChart) -> f64 {
-    let font_size = 17.0;
-    let char_width = font_size * 0.58;
+fn calculate_legend_width(pie_chart: &PieChart, font_data: &Option<Vec<u8>>) -> f64 {
+    let font_size = parse_font_size(
+        get_theme_variable(pie_chart, "pieLegendTextSize", "17px"),
+        17.0,
+    );
     let icon_width = 18.0; // Width of the color rectangle
     let icon_margin = 22.0; // Space between icon and text
-    let margin = 10.0; // Smaller right margin
+    let margin = 20.0; // Add more right margin for safety
 
     // Find the longest legend text
-    let max_text_length = pie_chart
-        .data
-        .iter()
-        .map(|data| format!("{} [{}]", data.label, data.value).len())
-        .max()
-        .unwrap_or(0) as f64;
+    let max_text_length = if let Some(font_data) = font_data {
+        pie_chart
+            .data
+            .iter()
+            .map(|data| {
+                measure_text_width(
+                    &format!("{} [{}]", data.label, data.value),
+                    font_data,
+                    font_size,
+                )
+            })
+            .fold(0.0f32, f32::max) as f64
+    } else {
+        // Fallback to character width estimation if font loading fails
+        let char_width = font_size as f64 * 0.53;
+        pie_chart
+            .data
+            .iter()
+            .map(|data| format!("{} [{}]", data.label, data.value).len() as f64 * char_width)
+            .fold(0.0, f64::max)
+    };
 
-    icon_width + icon_margin + (max_text_length * char_width) + margin
+    icon_width + icon_margin + max_text_length + margin
 }
 
 fn get_color_for_slice(pie_chart: &PieChart, index: usize) -> &str {
@@ -217,6 +273,24 @@ fn get_theme_variable<'a>(pie_chart: &'a PieChart, key: &str, default: &'a str) 
         }
     }
     default
+}
+
+fn parse_font_size(font_size_str: &str, default: f32) -> f32 {
+    if let Some(size_without_px) = font_size_str.strip_suffix("px") {
+        size_without_px.parse().unwrap_or_else(|_| {
+            eprintln!(
+                "Warning: Invalid font size '{}', using default {}px",
+                font_size_str, default
+            );
+            default
+        })
+    } else {
+        eprintln!(
+            "Warning: Font size '{}' must end with 'px', using default {}px",
+            font_size_str, default
+        );
+        default
+    }
 }
 
 fn create_pie_slice_path(

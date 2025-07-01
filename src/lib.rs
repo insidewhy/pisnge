@@ -20,6 +20,7 @@ pub struct PieChart {
     pub data: Vec<PieChartData>,
 }
 
+pub mod font;
 pub mod parser;
 pub mod png;
 pub mod renderer;

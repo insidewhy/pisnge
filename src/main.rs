@@ -26,6 +26,9 @@ struct Cli {
 
     #[arg(short = 'H', long, default_value = "600")]
     height: u32,
+
+    #[arg(long, default_value = "Liberation Sans")]
+    font: String,
 }
 
 fn detect_format_from_extension(output_path: &str) -> Option<String> {
@@ -66,61 +69,72 @@ fn main() {
     }
 
     match fs::read_to_string(&cli.input) {
-        Ok(content) => match parse_pie_chart(&content) {
-            Ok((_, pie_chart)) => {
-                if cli.verbose {
-                    println!("\nParsed pie chart:");
-                    println!("  Show data: {}", pie_chart.show_data);
-                    if let Some(title) = &pie_chart.title {
-                        println!("  Title: {}", title);
-                    }
-                    println!("  Data entries: {}", pie_chart.data.len());
-                    for entry in &pie_chart.data {
-                        println!("    \"{}\": {}", entry.label, entry.value);
-                    }
-                }
+        Ok(content) => {
+            // Ensure content ends with newline for easier parsing
+            let normalized_content = if content.ends_with('\n') {
+                content
+            } else {
+                format!("{}\n", content)
+            };
 
-                match output_format.as_str() {
-                    "svg" => {
-                        let svg_document = render_pie_chart_svg(&pie_chart, cli.width, cli.height);
-                        match fs::write(&cli.output, svg_document.to_string()) {
-                            Ok(_) => println!("SVG saved to: {}", cli.output),
-                            Err(e) => {
-                                eprintln!("Failed to write SVG file: {}", e);
-                                std::process::exit(1);
-                            }
+            match parse_pie_chart(&normalized_content) {
+                Ok((_, pie_chart)) => {
+                    if cli.verbose {
+                        println!("\nParsed pie chart:");
+                        println!("  Show data: {}", pie_chart.show_data);
+                        if let Some(title) = &pie_chart.title {
+                            println!("  Title: {}", title);
+                        }
+                        println!("  Data entries: {}", pie_chart.data.len());
+                        for entry in &pie_chart.data {
+                            println!("    \"{}\": {}", entry.label, entry.value);
                         }
                     }
-                    "png" => {
-                        let svg_document = render_pie_chart_svg(&pie_chart, cli.width, cli.height);
-                        match svg_to_png(&svg_document.to_string(), cli.width, cli.height) {
-                            Ok(png_data) => match fs::write(&cli.output, png_data) {
-                                Ok(_) => println!("PNG saved to: {}", cli.output),
+
+                    match output_format.as_str() {
+                        "svg" => {
+                            let (svg_document, _) =
+                                render_pie_chart_svg(&pie_chart, cli.width, cli.height, &cli.font);
+                            match fs::write(&cli.output, svg_document.to_string()) {
+                                Ok(_) => println!("SVG saved to: {}", cli.output),
                                 Err(e) => {
-                                    eprintln!("Failed to write PNG file: {}", e);
+                                    eprintln!("Failed to write SVG file: {}", e);
                                     std::process::exit(1);
                                 }
-                            },
-                            Err(e) => {
-                                eprintln!("Failed to convert SVG to PNG: {}", e);
-                                std::process::exit(1);
                             }
                         }
-                    }
-                    _ => {
-                        eprintln!(
-                            "Unsupported format: {}. Supported formats: png, svg",
-                            output_format
-                        );
-                        std::process::exit(1);
+                        "png" => {
+                            let (svg_document, actual_height) =
+                                render_pie_chart_svg(&pie_chart, cli.width, cli.height, &cli.font);
+                            match svg_to_png(&svg_document.to_string(), cli.width, actual_height) {
+                                Ok(png_data) => match fs::write(&cli.output, png_data) {
+                                    Ok(_) => println!("PNG saved to: {}", cli.output),
+                                    Err(e) => {
+                                        eprintln!("Failed to write PNG file: {}", e);
+                                        std::process::exit(1);
+                                    }
+                                },
+                                Err(e) => {
+                                    eprintln!("Failed to convert SVG to PNG: {}", e);
+                                    std::process::exit(1);
+                                }
+                            }
+                        }
+                        _ => {
+                            eprintln!(
+                                "Unsupported format: {}. Supported formats: png, svg",
+                                output_format
+                            );
+                            std::process::exit(1);
+                        }
                     }
                 }
+                Err(e) => {
+                    eprintln!("Failed to parse pie chart: {:?}", e);
+                    std::process::exit(1);
+                }
             }
-            Err(e) => {
-                eprintln!("Failed to parse pie chart: {:?}", e);
-                std::process::exit(1);
-            }
-        },
+        }
         Err(e) => {
             eprintln!("Failed to read input file: {}", e);
             std::process::exit(1);

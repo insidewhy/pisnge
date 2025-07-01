@@ -99,7 +99,7 @@ cargo run -- -i examples/storypoints-by-status-pie.mmd -o output.svg
 
 This project currently only supports pie charts and all mermaid options should be supported, however only the `base` theme is supported and the default colors are different.
 
-The pie chart segments are rendered in the order they are specified rather than from biggest to smallest, and the spacing is a little different (perhaps better?).
+The pie chart segments are rendered in the order they are specified rather than from biggest to smallest, and the spacing is better since font widths/heights can be measured directly.
 
 ## Development
 
