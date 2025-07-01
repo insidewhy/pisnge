@@ -99,12 +99,12 @@ pub fn render_pie_chart_svg(
 
     let style = Style::new(&format!(
         r#"
-        .pieCircle {{ stroke: {}; stroke-width: {}; opacity: {}; }}
-        .pieOuterCircle {{ stroke: {}; stroke-width: {}; fill: none; }}
-        .pieTitleText {{ text-anchor: middle; font-size: {}; fill: {}; font-family: "{}", sans-serif; }}
-        .slice {{ font-family: "{}", sans-serif; fill: {}; font-size: {}; text-anchor: middle; }}
-        .legend text {{ fill: {}; font-family: "{}", sans-serif; font-size: {}; }}
-    "#,
+            .pieCircle {{ stroke: {}; stroke-width: {}; opacity: {}; }}
+            .pieOuterCircle {{ stroke: {}; stroke-width: {}; fill: none; }}
+            .pieTitleText {{ text-anchor: middle; font-size: {}; fill: {}; font-family: "{}", sans-serif; }}
+            .slice {{ font-family: "{}", sans-serif; fill: {}; font-size: {}; text-anchor: middle; }}
+            .legend text {{ fill: {}; font-family: "{}", sans-serif; font-size: {}; }}
+        "#,
         pie_stroke_color,
         pie_stroke_width,
         pie_opacity,
@@ -206,7 +206,8 @@ pub fn render_pie_chart_svg(
                     .set("width", 18)
                     .set("height", 18)
                     .set("fill", color)
-                    .set("stroke", color),
+                    .set("stroke", color)
+                    .set("fill-opacity", pie_opacity),
             )
             .add(
                 Text::new(format!("{} [{}]", data.label, data.value))
