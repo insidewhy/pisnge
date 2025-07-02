@@ -1,1 +1,4 @@
 /target
+/examples/*.png
+/examples/*.svg
+/examples/mermaid
