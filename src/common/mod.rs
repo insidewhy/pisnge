@@ -172,20 +172,61 @@ fn parse_nested_theme_variables(
     prefix: &str,
     theme_variables: &mut HashMap<String, String>,
 ) {
-    // Simple parser for nested key-value pairs like "plotColorPalette":"#ff8b00, #9c1de9, #ff8b00"
-    for pair in content.split(',') {
-        let pair = pair.trim();
-        if let Some(colon_pos) = pair.find(':') {
-            let key = pair[..colon_pos]
-                .trim()
-                .trim_matches('\'')
-                .trim_matches('"');
-            let value = pair[colon_pos + 1..]
-                .trim()
-                .trim_matches('\'')
-                .trim_matches('"');
-            let full_key = format!("{}.{}", prefix, key);
-            theme_variables.insert(full_key, value.to_string());
+    // Parse nested key-value pairs, handling quoted strings with commas
+    let mut chars = content.chars().peekable();
+    let mut current_key = String::new();
+    let mut current_value = String::new();
+    let mut in_key = false;
+    let mut in_value = false;
+    let mut in_quotes = false;
+    let mut quote_char = '"';
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' | '\'' => {
+                if !in_quotes {
+                    in_quotes = true;
+                    quote_char = ch;
+                } else if ch == quote_char {
+                    in_quotes = false;
+                }
+                // Don't include quotes in the final values
+            }
+            ':' if !in_quotes => {
+                in_key = false;
+                in_value = true;
+            }
+            ',' if !in_quotes => {
+                if !current_key.is_empty() && !current_value.is_empty() {
+                    let key = current_key.trim();
+                    let value = current_value.trim();
+                    let full_key = format!("{}.{}", prefix, key);
+                    theme_variables.insert(full_key, value.to_string());
+                }
+                current_key.clear();
+                current_value.clear();
+                in_key = false;
+                in_value = false;
+            }
+            _ => {
+                if !in_key && !in_value && (ch.is_alphabetic() || ch == '"' || ch == '\'') {
+                    in_key = true;
+                }
+
+                if in_value {
+                    current_value.push(ch);
+                } else if in_key && ch != '"' && ch != '\'' {
+                    current_key.push(ch);
+                }
+            }
         }
+    }
+
+    // Handle final key-value pair
+    if !current_key.is_empty() && !current_value.is_empty() {
+        let key = current_key.trim();
+        let value = current_value.trim();
+        let full_key = format!("{}.{}", prefix, key);
+        theme_variables.insert(full_key, value.to_string());
     }
 }
