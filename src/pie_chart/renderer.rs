@@ -11,10 +11,16 @@ const DEFAULT_COLORS: [&str; 10] = [
 
 pub fn render_pie_chart_svg(
     pie_chart: &PieChart,
-    width: u32,
+    default_width: u32,
     height: u32,
     font_name: &str,
-) -> (Document, u32) {
+) -> (Document, u32, u32) {
+    // Use config width if present, otherwise use default
+    let width = pie_chart
+        .config
+        .as_ref()
+        .and_then(|c| c.width)
+        .unwrap_or(default_width);
     // Load font data once for both title and legend calculations
     let font_data = load_system_font_bytes(font_name);
 
@@ -219,7 +225,7 @@ pub fn render_pie_chart_svg(
         document = document.add(legend_group);
     }
 
-    (document.add(main_group), actual_height as u32)
+    (document.add(main_group), width, actual_height as u32)
 }
 
 fn calculate_legend_width(pie_chart: &PieChart, font_data: &Option<Vec<u8>>) -> f64 {

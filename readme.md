@@ -138,6 +138,18 @@ xychart-beta
   bar [8.5, 7, 5, 3, 1]
 ```
 
+## New Chart Types
+
+The `work-item-movement` chart shows how work items (e.g. jira tickets) change story points and statuse over time:
+
+```
+work-item-movement
+  title 'Work Item Changes'
+  columns [Not Existing, Draft, To Do, In Progress, In Review, In Test, Done]
+  PJ-633 Not Existing: 0 -> Draft: 1
+  PJ-491 In Review: 3 -> Done: 3
+  PJ-1 In Progress: 5 -> Draft: 8
+```
 
 ## Architecture
 

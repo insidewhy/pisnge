@@ -12,7 +12,8 @@
       "WebFetch(domain:stackoverflow.com)",
       "Bash(mkdir:*)",
       "Bash(mv:*)",
-      "Bash(./target/debug/pisnge:*)"
+      "Bash(./target/debug/pisnge:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

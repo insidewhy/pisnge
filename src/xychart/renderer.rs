@@ -10,10 +10,16 @@ const DEFAULT_COLORS: [&str; 10] = [
 
 pub fn render_xychart_svg(
     xychart: &XYChart,
-    width: u32,
+    default_width: u32,
     height: u32,
     font_name: &str,
-) -> (Document, u32) {
+) -> (Document, u32, u32) {
+    // Use config width if present, otherwise use default
+    let width = xychart
+        .config
+        .as_ref()
+        .and_then(|c| c.width)
+        .unwrap_or(default_width);
     let font_data = load_system_font_bytes(font_name);
 
     // Consistent margins around the chart
@@ -391,7 +397,7 @@ pub fn render_xychart_svg(
 
     document = document.add(main_group);
 
-    (document, height)
+    (document, width, height)
 }
 
 fn get_theme_variable<'a>(xychart: &'a XYChart, key: &str, default: &'a str) -> &'a str {

@@ -9,12 +9,19 @@ use super::{config_line, ChartConfig};
 pub enum ChartType {
     Pie,
     XY,
+    WorkItemMovement,
 }
 
 pub fn detect_chart_type(input: &str) -> IResult<&str, ChartType> {
     let (input, _) = multispace0(input)?;
 
-    // Try to match xychart-beta first
+    // Try to match work-item-movement
+    if let Ok((input, _)) = tag::<&str, &str, nom::error::Error<&str>>("work-item-movement")(input)
+    {
+        return Ok((input, ChartType::WorkItemMovement));
+    }
+
+    // Try to match xychart-beta
     if let Ok((input, _)) = tag::<&str, &str, nom::error::Error<&str>>("xychart-beta")(input) {
         return Ok((input, ChartType::XY));
     }

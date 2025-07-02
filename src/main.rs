@@ -2,6 +2,7 @@ use clap::Parser;
 use pisnge::common::parser::{parse_config_and_detect_type, ChartType};
 use pisnge::pie_chart::{parse_pie_chart_content, render_pie_chart_svg};
 use pisnge::png::svg_to_png;
+use pisnge::work_item_movement::{parse_work_item_movement, render_work_item_movement_svg};
 use pisnge::xychart::{parse_xychart_content, render_xychart_svg};
 use std::fs;
 use std::path::Path;
@@ -109,7 +110,7 @@ fn main() {
 
                                     match output_format.as_str() {
                                         "svg" => {
-                                            let (svg_document, _) = render_pie_chart_svg(
+                                            let (svg_document, _, _) = render_pie_chart_svg(
                                                 &pie_chart, cli.width, cli.height, &cli.font,
                                             );
                                             match fs::write(&cli.output, svg_document.to_string()) {
@@ -121,13 +122,13 @@ fn main() {
                                             }
                                         }
                                         "png" => {
-                                            let (svg_document, actual_height) =
+                                            let (svg_document, actual_width, actual_height) =
                                                 render_pie_chart_svg(
                                                     &pie_chart, cli.width, cli.height, &cli.font,
                                                 );
                                             match svg_to_png(
                                                 &svg_document.to_string(),
-                                                cli.width,
+                                                actual_width,
                                                 actual_height,
                                                 &cli.font,
                                             ) {
@@ -194,7 +195,7 @@ fn main() {
 
                                 match output_format.as_str() {
                                     "svg" => {
-                                        let (svg_document, _) = render_xychart_svg(
+                                        let (svg_document, _, _) = render_xychart_svg(
                                             &xychart, cli.width, cli.height, &cli.font,
                                         );
                                         match fs::write(&cli.output, svg_document.to_string()) {
@@ -206,12 +207,13 @@ fn main() {
                                         }
                                     }
                                     "png" => {
-                                        let (svg_document, actual_height) = render_xychart_svg(
-                                            &xychart, cli.width, cli.height, &cli.font,
-                                        );
+                                        let (svg_document, actual_width, actual_height) =
+                                            render_xychart_svg(
+                                                &xychart, cli.width, cli.height, &cli.font,
+                                            );
                                         match svg_to_png(
                                             &svg_document.to_string(),
-                                            cli.width,
+                                            actual_width,
                                             actual_height,
                                             &cli.font,
                                         ) {
@@ -249,6 +251,98 @@ fn main() {
                                 std::process::exit(1);
                             }
                         },
+                        ChartType::WorkItemMovement => {
+                            match parse_work_item_movement(remaining_content, config) {
+                                Ok((_, work_item_movement)) => {
+                                    if cli.verbose {
+                                        println!("\nParsed work item movement chart:");
+                                        if let Some(title) = &work_item_movement.title {
+                                            println!("  Title: {}", title);
+                                        }
+                                        println!("  Columns: {:?}", work_item_movement.columns);
+                                        println!(
+                                            "  Work items: {}",
+                                            work_item_movement.items.len()
+                                        );
+                                        for item in &work_item_movement.items {
+                                            println!(
+                                                "    {}: {} ({}) -> {} ({})",
+                                                item.id,
+                                                item.from_state,
+                                                item.from_points,
+                                                item.to_state,
+                                                item.to_points
+                                            );
+                                        }
+                                    }
+
+                                    match output_format.as_str() {
+                                        "svg" => {
+                                            let (svg_document, _, _) =
+                                                render_work_item_movement_svg(
+                                                    &work_item_movement,
+                                                    cli.width,
+                                                    &cli.font,
+                                                );
+                                            match fs::write(&cli.output, svg_document.to_string()) {
+                                                Ok(_) => println!("SVG saved to: {}", cli.output),
+                                                Err(e) => {
+                                                    eprintln!("Failed to write SVG file: {}", e);
+                                                    std::process::exit(1);
+                                                }
+                                            }
+                                        }
+                                        "png" => {
+                                            let (svg_document, actual_width, actual_height) =
+                                                render_work_item_movement_svg(
+                                                    &work_item_movement,
+                                                    cli.width,
+                                                    &cli.font,
+                                                );
+                                            match svg_to_png(
+                                                &svg_document.to_string(),
+                                                actual_width,
+                                                actual_height,
+                                                &cli.font,
+                                            ) {
+                                                Ok(png_data) => {
+                                                    match fs::write(&cli.output, png_data) {
+                                                        Ok(_) => {
+                                                            println!("PNG saved to: {}", cli.output)
+                                                        }
+                                                        Err(e) => {
+                                                            eprintln!(
+                                                                "Failed to write PNG file: {}",
+                                                                e
+                                                            );
+                                                            std::process::exit(1);
+                                                        }
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    eprintln!(
+                                                        "Failed to convert SVG to PNG: {}",
+                                                        e
+                                                    );
+                                                    std::process::exit(1);
+                                                }
+                                            }
+                                        }
+                                        _ => {
+                                            eprintln!(
+                                                "Unsupported format: {}. Supported formats: png, svg",
+                                                output_format
+                                            );
+                                            std::process::exit(1);
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("Failed to parse work item movement chart: {:?}", e);
+                                    std::process::exit(1);
+                                }
+                            }
+                        }
                     }
                 }
                 Err(e) => {

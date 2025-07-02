@@ -2,6 +2,7 @@ pub mod common;
 pub mod font;
 pub mod pie_chart;
 pub mod png;
+pub mod work_item_movement;
 pub mod xychart;
 
 // Re-export pie chart types for backward compatibility

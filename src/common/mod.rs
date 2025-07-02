@@ -13,6 +13,7 @@ pub mod parser;
 pub struct ChartConfig {
     pub theme: String,
     pub theme_variables: HashMap<String, String>,
+    pub width: Option<u32>,
 }
 
 pub fn quoted_string(input: &str) -> IResult<&str, &str> {
@@ -37,12 +38,26 @@ pub fn config_line(input: &str) -> IResult<&str, ChartConfig> {
 
     let mut theme = "base".to_string();
     let mut theme_variables = HashMap::new();
+    let mut width = None;
 
     // Parse theme
     if let Some(theme_start) = config_content.find("'theme': '") {
         let theme_content = &config_content[theme_start + 10..];
         if let Some(theme_end) = theme_content.find("'") {
             theme = theme_content[..theme_end].to_string();
+        }
+    }
+
+    // Parse width
+    if let Some(width_start) = config_content.find("'width': ") {
+        let width_content = &config_content[width_start + 9..];
+        // Find the end of the number (either comma or closing brace)
+        let width_end = width_content
+            .find(',')
+            .or(width_content.find('}'))
+            .unwrap_or(width_content.len());
+        if let Ok(w) = width_content[..width_end].trim().parse::<u32>() {
+            width = Some(w);
         }
     }
 
@@ -57,6 +72,7 @@ pub fn config_line(input: &str) -> IResult<&str, ChartConfig> {
         ChartConfig {
             theme,
             theme_variables,
+            width,
         },
     ))
 }
