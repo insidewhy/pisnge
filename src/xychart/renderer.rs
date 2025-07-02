@@ -166,7 +166,7 @@ pub fn render_xychart_svg(
     // Create chart plot group
     let mut plot_group = Group::new().set("class", "plot");
 
-    // For each category position, collect all bar values and sort by height (tallest first)
+    // Render bars first (so lines appear on top)
     for data_idx in 0..num_categories {
         let mut bars_for_position: Vec<(usize, f64, &str)> = Vec::new();
 
@@ -202,6 +202,40 @@ pub fn render_xychart_svg(
                     .set("height", bar_height)
                     .set("class", format!("bar-plot-{}", series_idx)),
             );
+        }
+    }
+
+    // Render lines second (so they appear on top of bars)
+    for (series_idx, series) in xychart.series.iter().enumerate() {
+        if let SeriesType::Line = series.series_type {
+            let color = get_color_for_series(&xychart, series_idx);
+            let mut path_data = String::new();
+
+            for (data_idx, &value) in series.data.iter().enumerate() {
+                if data_idx >= num_categories {
+                    break;
+                }
+
+                let x = chart_left + data_idx as f64 * category_width + category_width / 2.0;
+                let y = chart_bottom - (value - xychart.y_axis.min) * y_scale;
+
+                if data_idx == 0 {
+                    path_data.push_str(&format!("M {},{}", x, y));
+                } else {
+                    path_data.push_str(&format!(" L {},{}", x, y));
+                }
+            }
+
+            if !path_data.is_empty() {
+                plot_group = plot_group.add(
+                    Path::new()
+                        .set("d", path_data)
+                        .set("stroke", color)
+                        .set("stroke-width", "2")
+                        .set("fill", "none")
+                        .set("class", format!("line-plot-{}", series_idx)),
+                );
+            }
         }
     }
 

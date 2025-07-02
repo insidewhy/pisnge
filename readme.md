@@ -155,8 +155,9 @@ The pie chart segments are rendered in the order they are specified rather than 
 
 ### XY Charts
 
-Only bar series are currently supported, the tallest bars are always drawn first to ensure that bars don't get entirely covered.
-Bars can have a height of `0`, unlike mermaid, which will cause them not to be drawn (mermaid will draw a short bar in this circumstance).
+For each set of bars in the same axis the tallest bars are drawn first to ensure that bars don't get entirely covered.
+Bars are always drawn before lines.
+Bars can have a height of `0`, unlike mermaid, which will cause them not to be visible (mermaid will draw a short bar in this circumstance).
 When `pisnge` detects that x-axis labels overlap each other it will automatically switch their orientation to be vertical.
 
 Only a limited number of theme variables are currently supported:
