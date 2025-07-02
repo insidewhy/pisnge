@@ -1,7 +1,7 @@
 use nom::{
     bytes::complete::{tag, take_until},
     character::complete::{char, multispace0, space0},
-    combinator::{map, opt},
+    combinator::opt,
     multi::separated_list0,
     sequence::{delimited, preceded, tuple},
     IResult,
@@ -21,14 +21,73 @@ fn quoted_string(input: &str) -> IResult<&str, &str> {
     delimited(char('"'), take_until("\""), char('"'))(input)
 }
 
+fn quoted_string_single(input: &str) -> IResult<&str, &str> {
+    delimited(char('\''), take_until("'"), char('\''))(input)
+}
+
+fn parse_label(input: &str) -> IResult<&str, String> {
+    let (input, _) = multispace0(input)?;
+
+    // Try parsing as double-quoted string
+    if let Ok((input, content)) = quoted_string(input) {
+        return Ok((input, content.to_string()));
+    }
+
+    // Try parsing as single-quoted string
+    if let Ok((input, content)) = quoted_string_single(input) {
+        return Ok((input, content.to_string()));
+    }
+
+    // Parse as unquoted string (until comma or closing bracket)
+    let (input, content) = take_until_any(&[',', ']'])(input)?;
+    Ok((input, content.trim().to_string()))
+}
+
+fn parse_labels_list(input: &str) -> IResult<&str, Vec<String>> {
+    let mut labels = Vec::new();
+    let mut remaining = input;
+
+    loop {
+        // Skip whitespace
+        let (input, _) = multispace0(remaining)?;
+        remaining = input;
+
+        // Check if we've reached the end bracket
+        if remaining.starts_with(']') {
+            break;
+        }
+
+        // Parse a label
+        let (input, label) = parse_label(remaining)?;
+        labels.push(label);
+        remaining = input;
+
+        // Skip whitespace
+        let (input, _) = multispace0(remaining)?;
+        remaining = input;
+
+        // Check for comma or end bracket
+        if remaining.starts_with(',') {
+            let (input, _) = char(',')(remaining)?;
+            remaining = input;
+        } else if remaining.starts_with(']') {
+            break;
+        } else {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                remaining,
+                nom::error::ErrorKind::Char,
+            )));
+        }
+    }
+
+    Ok((remaining, labels))
+}
+
 fn x_axis_line(input: &str) -> IResult<&str, XAxis> {
     let (input, _) = tag("x-axis")(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char('[')(input)?;
-    let (input, labels) = separated_list0(
-        tuple((space0, char(','), space0)),
-        map(take_until_any(&[',', ']']), |s: &str| s.trim().to_string()),
-    )(input)?;
+    let (input, labels) = parse_labels_list(input)?;
     let (input, _) = char(']')(input)?;
 
     Ok((input, XAxis { labels }))
@@ -156,5 +215,56 @@ xychart-beta
         assert_eq!(xychart.series[0].series_type, SeriesType::Bar);
         assert_eq!(xychart.series[0].data, vec![2.0, 4.0, 6.0, 8.0, 9.0]);
         assert_eq!(xychart.series[1].data, vec![8.5, 7.0, 5.0, 3.0, 1.0]);
+    }
+
+    #[test]
+    fn test_parse_label_function() {
+        // Test quoted string with comma
+        let result = parse_label(r#""A,B""#);
+        assert!(result.is_ok(), "Failed to parse quoted label: {:?}", result);
+        let (_, label) = result.unwrap();
+        assert_eq!(label, "A,B");
+
+        // Test single quoted string with comma
+        let result = parse_label(r#"'C,D'"#);
+        assert!(
+            result.is_ok(),
+            "Failed to parse single quoted label: {:?}",
+            result
+        );
+        let (_, label) = result.unwrap();
+        assert_eq!(label, "C,D");
+    }
+
+    #[test]
+    fn test_parse_labels_list() {
+        // Test simple quoted labels with commas
+        let result = parse_labels_list(r#""A,B", "C,D"]"#);
+        assert!(result.is_ok(), "Failed to parse labels list: {:?}", result);
+        let (remaining, labels) = result.unwrap();
+        assert_eq!(remaining, "]");
+        assert_eq!(labels.len(), 2);
+        assert_eq!(labels[0], "A,B");
+        assert_eq!(labels[1], "C,D");
+    }
+
+    #[test]
+    fn test_parse_xychart_with_quoted_labels() {
+        let input = r##"xychart-beta
+  title "Test Chart"
+  x-axis ["Label with, comma", 'Another, with comma', "Simple Label", UnquotedLabel]
+  y-axis "Values" 0 --> 100
+  bar [10, 20, 30, 40]
+"##;
+
+        let result = parse_xychart(input);
+        assert!(result.is_ok(), "Failed to parse: {:?}", result);
+
+        let (_, xychart) = result.unwrap();
+        assert_eq!(xychart.x_axis.labels.len(), 4);
+        assert_eq!(xychart.x_axis.labels[0], "Label with, comma");
+        assert_eq!(xychart.x_axis.labels[1], "Another, with comma");
+        assert_eq!(xychart.x_axis.labels[2], "Simple Label");
+        assert_eq!(xychart.x_axis.labels[3], "UnquotedLabel");
     }
 }

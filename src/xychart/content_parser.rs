@@ -1,7 +1,7 @@
 use nom::{
     bytes::complete::{tag, take_until},
     character::complete::{char, multispace0, space0},
-    combinator::{map, opt},
+    combinator::opt,
     multi::separated_list0,
     sequence::{delimited, preceded, tuple},
     IResult,
@@ -21,14 +21,73 @@ fn quoted_string(input: &str) -> IResult<&str, &str> {
     delimited(char('"'), take_until("\""), char('"'))(input)
 }
 
+fn quoted_string_single(input: &str) -> IResult<&str, &str> {
+    delimited(char('\''), take_until("'"), char('\''))(input)
+}
+
+fn parse_label(input: &str) -> IResult<&str, String> {
+    let (input, _) = multispace0(input)?;
+
+    // Try parsing as double-quoted string
+    if let Ok((input, content)) = quoted_string(input) {
+        return Ok((input, content.to_string()));
+    }
+
+    // Try parsing as single-quoted string
+    if let Ok((input, content)) = quoted_string_single(input) {
+        return Ok((input, content.to_string()));
+    }
+
+    // Parse as unquoted string (until comma or closing bracket)
+    let (input, content) = take_until_any(&[',', ']'])(input)?;
+    Ok((input, content.trim().to_string()))
+}
+
+fn parse_labels_list(input: &str) -> IResult<&str, Vec<String>> {
+    let mut labels = Vec::new();
+    let mut remaining = input;
+
+    loop {
+        // Skip whitespace
+        let (input, _) = multispace0(remaining)?;
+        remaining = input;
+
+        // Check if we've reached the end bracket
+        if remaining.starts_with(']') {
+            break;
+        }
+
+        // Parse a label
+        let (input, label) = parse_label(remaining)?;
+        labels.push(label);
+        remaining = input;
+
+        // Skip whitespace
+        let (input, _) = multispace0(remaining)?;
+        remaining = input;
+
+        // Check for comma or end bracket
+        if remaining.starts_with(',') {
+            let (input, _) = char(',')(remaining)?;
+            remaining = input;
+        } else if remaining.starts_with(']') {
+            break;
+        } else {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                remaining,
+                nom::error::ErrorKind::Char,
+            )));
+        }
+    }
+
+    Ok((remaining, labels))
+}
+
 fn x_axis_line(input: &str) -> IResult<&str, XAxis> {
     let (input, _) = tag("x-axis")(input)?;
     let (input, _) = space0(input)?;
     let (input, _) = char('[')(input)?;
-    let (input, labels) = separated_list0(
-        tuple((space0, char(','), space0)),
-        map(take_until_any(&[',', ']']), |s: &str| s.trim().to_string()),
-    )(input)?;
+    let (input, labels) = parse_labels_list(input)?;
     let (input, _) = char(']')(input)?;
 
     Ok((input, XAxis { labels }))
