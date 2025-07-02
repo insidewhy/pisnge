@@ -20,7 +20,12 @@ impl fmt::Display for PngError {
 
 impl Error for PngError {}
 
-pub fn svg_to_png(svg_content: &str, width: u32, height: u32) -> Result<Vec<u8>, PngError> {
+pub fn svg_to_png(
+    svg_content: &str,
+    width: u32,
+    height: u32,
+    font_name: &str,
+) -> Result<Vec<u8>, PngError> {
     let mut fontdb = resvg::usvg::fontdb::Database::new();
     fontdb.load_system_fonts();
 
@@ -31,7 +36,7 @@ pub fn svg_to_png(svg_content: &str, width: u32, height: u32) -> Result<Vec<u8>,
 
     let options = Options {
         fontdb: std::sync::Arc::new(fontdb),
-        font_family: "Liberation Sans".to_string(),
+        font_family: font_name.to_string(),
         font_size: 12.0,
         ..Options::default()
     };

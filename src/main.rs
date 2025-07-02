@@ -129,6 +129,7 @@ fn main() {
                                                 &svg_document.to_string(),
                                                 cli.width,
                                                 actual_height,
+                                                &cli.font,
                                             ) {
                                                 Ok(png_data) => {
                                                     match fs::write(&cli.output, png_data) {
@@ -212,6 +213,7 @@ fn main() {
                                             &svg_document.to_string(),
                                             cli.width,
                                             actual_height,
+                                            &cli.font,
                                         ) {
                                             Ok(png_data) => {
                                                 match fs::write(&cli.output, png_data) {
