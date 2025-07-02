@@ -24,23 +24,24 @@ while [[ $1 = -* ]]; do
   shift
 done
 
-chart=$1
-if [[ ! $chart ]]; then
-  fail Must provide chart as positional argument
+if [[ ! $@ ]]; then
+  fail Must provide one or more charts as positional arguments
 fi
 
 outputs=()
 
-if [[ $mermaid || $compare ]] ; then
-  mmd_output=${chart%.mmd}-mdd.$output_extension
-  pnpm dlx @mermaid-js/mermaid-cli -i $chart -o $mmd_output
-  outputs+=($mmd_output)
-fi
+for chart in "$@"; do
+  if [[ $mermaid || $compare ]] ; then
+    mmd_output=${chart%.mmd}-mdd.$output_extension
+    pnpm dlx @mermaid-js/mermaid-cli -i $chart -o $mmd_output
+    outputs+=($mmd_output)
+  fi
 
-if [[ ! $mermaid || $compare ]]; then
-  pisnge_output=${chart%.mmd}.$output_extension
-  cargo run -- -i $chart -o $pisnge_output
-  outputs+=($pisnge_output)
-fi
+  if [[ ! $mermaid || $compare ]]; then
+    pisnge_output=${chart%.mmd}.$output_extension
+    cargo run -- -i $chart -o $pisnge_output
+    outputs+=($pisnge_output)
+  fi
+done
 
 feh -F "${outputs[@]}"
