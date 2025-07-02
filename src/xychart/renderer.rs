@@ -85,8 +85,12 @@ pub fn render_xychart_svg(
         0.0
     };
 
-    // Space needed for axes
-    let y_axis_label_space = max_y_label_width + 35.0; // Measured label width + space for title and margins
+    // Space needed for axes - using consistent spacing components
+    let label_to_axis_gap = 10.0; // Gap between labels and axis line
+    let title_to_labels_gap = 12.0; // Visual gap between right edge of title and left edge of widest label
+    let axis_title_width = 20.0; // Approximate width needed for rotated axis title text
+    let y_axis_label_space =
+        max_y_label_width + label_to_axis_gap + title_to_labels_gap + axis_title_width;
     let x_axis_label_space = if should_use_vertical_labels {
         max_x_label_width + 20.0 // Width of longest label + margin
     } else {
@@ -340,11 +344,11 @@ pub fn render_xychart_svg(
             - (i as f64 * (xychart.y_axis.max - xychart.y_axis.min) / (num_ticks - 1) as f64);
         let y = chart_top + i as f64 * chart_height / (num_ticks - 1) as f64;
 
-        // Label - position based on measured width
+        // Label - position with consistent gap from axis line
         y_labels_group = y_labels_group.add(
             Text::new(format!("{}", value as i32))
                 .set("class", "axis-label")
-                .set("x", chart_left - 10.0)
+                .set("x", chart_left - label_to_axis_gap)
                 .set("y", y)
                 .set("text-anchor", "end")
                 .set("dominant-baseline", "middle"),
@@ -360,8 +364,13 @@ pub fn render_xychart_svg(
     y_axis_group = y_axis_group.add(y_labels_group);
     y_axis_group = y_axis_group.add(y_ticks_group);
 
-    // Y-axis title - position so left edge matches right margin distance
-    let y_title_x = margin; // Same distance from left edge as chart is from right edge
+    // Y-axis title - position with exact visual gap spacing
+    // We need to calculate where the labels actually end up being drawn
+    // The labels are positioned at: chart_left - label_to_axis_gap
+    // Since they're right-aligned, their left edge is at: (chart_left - label_to_axis_gap) - max_y_label_width
+    let actual_label_right_edge = chart_left - label_to_axis_gap;
+    let actual_label_left_edge = actual_label_right_edge - max_y_label_width;
+    let y_title_x = actual_label_left_edge - title_to_labels_gap;
     let y_title_y = chart_top + chart_height / 2.0;
     y_axis_group = y_axis_group.add(
         Group::new().set("class", "title").add(
@@ -370,7 +379,7 @@ pub fn render_xychart_svg(
                 .set("x", y_title_x)
                 .set("y", y_title_y)
                 .set("text-anchor", "middle")
-                .set("dominant-baseline", "text-before-edge")
+                .set("dominant-baseline", "text-after-edge")
                 .set(
                     "transform",
                     format!("rotate(270, {}, {})", y_title_x, y_title_y),
