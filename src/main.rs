@@ -2,7 +2,9 @@ use clap::Parser;
 use pisnge::common::parser::{parse_config_and_detect_type, ChartType};
 use pisnge::pie_chart::{parse_pie_chart_content, render_pie_chart_svg};
 use pisnge::png::svg_to_png;
-use pisnge::work_item_movement::{parse_work_item_movement, render_work_item_movement_svg};
+use pisnge::work_item_movement::{
+    parse_work_item_movement, render_work_item_movement_svg, validate_work_item_movement,
+};
 use pisnge::xychart::{parse_xychart_content, render_xychart_svg};
 use std::fs;
 use std::path::Path;
@@ -254,6 +256,12 @@ fn main() {
                         ChartType::WorkItemMovement => {
                             match parse_work_item_movement(remaining_content, config) {
                                 Ok((_, work_item_movement)) => {
+                                    // Validate the work item movement chart
+                                    if let Err(e) = validate_work_item_movement(&work_item_movement)
+                                    {
+                                        eprintln!("Error: {}", e);
+                                        std::process::exit(1);
+                                    }
                                     if cli.verbose {
                                         println!("\nParsed work item movement chart:");
                                         if let Some(title) = &work_item_movement.title {

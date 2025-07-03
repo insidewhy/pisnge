@@ -237,12 +237,12 @@ pub fn render_work_item_movement_svg(
         let from_idx = chart
             .columns
             .iter()
-            .position(|c| c == &item.from_state)
+            .position(|c| c.to_lowercase() == item.from_state.to_lowercase())
             .unwrap_or(0);
         let to_idx = chart
             .columns
             .iter()
-            .position(|c| c == &item.to_state)
+            .position(|c| c.to_lowercase() == item.to_state.to_lowercase())
             .unwrap_or(0);
 
         let from_x = column_positions[from_idx];

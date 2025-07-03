@@ -6,9 +6,23 @@ use nom::{
     sequence::{delimited, tuple},
     IResult,
 };
+use std::fmt;
 
 use super::{WorkItem, WorkItemMovement};
 use crate::common::ChartConfig;
+
+#[derive(Debug)]
+pub struct ValidationError {
+    pub message: String,
+}
+
+impl fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for ValidationError {}
 
 fn header(input: &str) -> IResult<&str, ()> {
     let (input, _) = tag("work-item-movement")(input)?;
@@ -97,6 +111,8 @@ pub fn parse_work_item_movement(
     let (input, items) = separated_list0(multispace0, work_item_line)(input)?;
     let (input, _) = multispace0(input)?;
 
+    // Don't validate here - we'll validate in a separate function
+
     Ok((
         input,
         WorkItemMovement {
@@ -106,6 +122,44 @@ pub fn parse_work_item_movement(
             items,
         },
     ))
+}
+
+/// Validates that all referenced states in work items exist in the columns list
+pub fn validate_work_item_movement(chart: &WorkItemMovement) -> Result<(), ValidationError> {
+    for item in &chart.items {
+        // Case-insensitive check for from_state
+        if !chart.columns.iter().any(|col| col.to_lowercase() == item.from_state.to_lowercase()) {
+            return Err(ValidationError {
+                message: format!(
+                    "Work item '{}' references column '{}' which does not exist. Available columns are: {:?}",
+                    item.id, item.from_state, chart.columns
+                ),
+            });
+        }
+        // Case-insensitive check for to_state
+        if !chart.columns.iter().any(|col| col.to_lowercase() == item.to_state.to_lowercase()) {
+            return Err(ValidationError {
+                message: format!(
+                    "Work item '{}' references column '{}' which does not exist. Available columns are: {:?}",
+                    item.id, item.to_state, chart.columns
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Parse and validate work item movement chart
+pub fn parse_and_validate_work_item_movement(
+    input: &str,
+    config: Option<ChartConfig>,
+) -> Result<WorkItemMovement, Box<dyn std::error::Error>> {
+    let (_, chart) = parse_work_item_movement(input, config)
+        .map_err(|e| format!("Failed to parse work item movement chart: {:?}", e))?;
+
+    validate_work_item_movement(&chart)?;
+
+    Ok(chart)
 }
 
 #[cfg(test)]
