@@ -126,17 +126,30 @@ xychart-beta
   bar [8.5, 7, 5, 3, 1]
 ```
 
-#### With Theme Configuration and Legend
+#### With Theme Configuration, Legend and Stroke Types
 
 ```
-%%{init: {'theme': 'base', 'themeVariables': {"xyChart":{"plotColorPalette":"#ff8b00, #9c1de9"}}}}%%
+%%{init: {
+  'width': 1000,
+  'theme': 'base',
+  'themeVariables': {
+    "xyChart":{
+      "plotColorPalette":"#aaaaaa,#cccccc,#4c82db,#9c1de9,#038411",
+      "plotPoints":"none,none,diamond,square,square",
+      "strokeStyles":"dashed,dashed,solid,solid,solid",
+    }
+  }
+}}%%
 xychart-beta
-  title "Issues in review or ready for QA"
-  legend [In Review, Ready for QA]
-  x-axis [NP-213, NP-341, NP-481, NP-482, NP-420]
-  y-axis "Number of days in status" 0 --> 10
-  bar [2, 0, 6, 8, 9]
-  bar [8.5, 7, 5, 3, 1]
+  title "Burn-up chart"
+  legend [Original Target, Target, Commitment, Ready for QA, Done]
+  x-axis [Day 1, Day 2, Day 3, Day 4, Day 5, Day 6, Day 7, Day 8, Day 9, Day 10]
+  y-axis "Story points" 0 --> 120
+  line [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+  line [12, 24, 36, 48, 60, 72, 84, 96, 108, 120]
+  line [100, 100, 110, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120]
+  line [5, 30, 36, 60]
+  line [0, 5, 15, 40]
 ```
 
 ## New Chart Types
@@ -172,6 +185,8 @@ Only a limited number of theme variables are currently supported:
 - `titleFontSize`
 - `labelFontSize`
 - `plotColorPalette`
+
+New options are supported which can be seen in the example above.
 
 ## Development
 

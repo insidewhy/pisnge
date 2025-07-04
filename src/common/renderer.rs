@@ -10,6 +10,7 @@ pub struct LegendConfig {
     pub icon_to_text_gap: f64,
     pub item_spacing: f64,
     pub right_margin: f64,
+    pub draw_border: bool,
 }
 
 impl Default for LegendConfig {
@@ -22,6 +23,7 @@ impl Default for LegendConfig {
             icon_to_text_gap: 4.0,
             item_spacing: 22.0,
             right_margin: 20.0,
+            draw_border: true,
         }
     }
 }
@@ -69,23 +71,23 @@ pub fn render_legend(
 
         let item_group = Group::new().set("transform", format!("translate({},{})", x, item_y));
 
-        let item_group = item_group
-            .add(
-                Rectangle::new()
-                    .set("width", config.icon_width)
-                    .set("height", config.icon_height)
-                    .set("fill", color)
-                    .set("stroke", "#000000")
-                    .set("stroke-width", "1px")
-                    .set("fill-opacity", "1"),
-            )
-            .add(
-                Text::new(label.clone())
-                    .set("x", config.icon_width + config.icon_to_text_gap)
-                    .set("y", config.icon_height * 0.75) // Vertically center the text
-                    .set("font-family", format!("{}, sans-serif", config.font_name))
-                    .set("font-size", config.font_size.to_string()),
-            );
+        let mut rect = Rectangle::new()
+            .set("width", config.icon_width)
+            .set("height", config.icon_height)
+            .set("fill", color)
+            .set("fill-opacity", "1");
+
+        if config.draw_border {
+            rect = rect.set("stroke", "#000000").set("stroke-width", "1px");
+        }
+
+        let item_group = item_group.add(rect).add(
+            Text::new(label.clone())
+                .set("x", config.icon_width + config.icon_to_text_gap)
+                .set("y", config.icon_height * 0.75) // Vertically center the text
+                .set("font-family", format!("{}, sans-serif", config.font_name))
+                .set("font-size", config.font_size.to_string()),
+        );
 
         legend_group = legend_group.add(item_group);
     }

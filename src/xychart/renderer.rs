@@ -42,6 +42,7 @@ pub fn render_xychart_svg(
     let legend_config = LegendConfig {
         font_name: font_name.to_string(),
         font_size: legend_font_size as f64,
+        draw_border: false,
         ..Default::default()
     };
 
@@ -256,14 +257,65 @@ pub fn render_xychart_svg(
             }
 
             if !path_data.is_empty() {
-                plot_group = plot_group.add(
-                    Path::new()
-                        .set("d", path_data)
-                        .set("stroke", color)
-                        .set("stroke-width", "2")
-                        .set("fill", "none")
-                        .set("class", format!("line-plot-{}", series_idx)),
-                );
+                let stroke_style = get_stroke_style(&xychart, series_idx);
+                let mut line_path = Path::new()
+                    .set("d", path_data)
+                    .set("stroke", color)
+                    .set("stroke-width", "2")
+                    .set("fill", "none")
+                    .set("class", format!("line-plot-{}", series_idx));
+
+                if stroke_style == "dashed" {
+                    line_path = line_path.set("stroke-dasharray", "5,5");
+                }
+
+                plot_group = plot_group.add(line_path);
+            }
+
+            // Draw plot points if specified
+            if let Some(shape) = get_plot_point_shape(&xychart, series_idx) {
+                for (data_idx, &value) in series.data.iter().enumerate() {
+                    if data_idx >= num_categories {
+                        break;
+                    }
+
+                    let x = chart_left + data_idx as f64 * category_width + category_width / 2.0;
+                    let y = chart_bottom - (value - xychart.y_axis.min) * y_scale;
+
+                    match shape {
+                        "square" => {
+                            plot_group = plot_group.add(
+                                Rectangle::new()
+                                    .set("x", x - 4.0)
+                                    .set("y", y - 4.0)
+                                    .set("width", 8)
+                                    .set("height", 8)
+                                    .set("fill", color)
+                                    .set("stroke", "none"),
+                            );
+                        }
+                        "diamond" => {
+                            let diamond_path = format!(
+                                "M {},{} L {},{} L {},{} L {},{} Z",
+                                x,
+                                y - 5.0, // top
+                                x + 5.0,
+                                y, // right
+                                x,
+                                y + 5.0, // bottom
+                                x - 5.0,
+                                y // left
+                            );
+                            plot_group = plot_group.add(
+                                Path::new()
+                                    .set("d", diamond_path)
+                                    .set("fill", color)
+                                    .set("stroke", "none"),
+                            );
+                        }
+                        _ => {} // Ignore unknown shapes
+                    }
+                }
             }
         }
     }
@@ -475,4 +527,31 @@ fn get_color_for_series(xychart: &XYChart, index: usize) -> &str {
         }
     }
     DEFAULT_COLORS[index % DEFAULT_COLORS.len()]
+}
+
+fn get_plot_point_shape(xychart: &XYChart, index: usize) -> Option<&str> {
+    if let Some(config) = &xychart.config {
+        if let Some(plot_points) = config.theme_variables.get("xyChart.plotPoints") {
+            let shapes: Vec<&str> = plot_points.split(',').map(|s| s.trim()).collect();
+            if index < shapes.len() {
+                let shape = shapes[index];
+                if shape != "none" {
+                    return Some(shape);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn get_stroke_style(xychart: &XYChart, index: usize) -> &str {
+    if let Some(config) = &xychart.config {
+        if let Some(stroke_styles) = config.theme_variables.get("xyChart.strokeStyles") {
+            let styles: Vec<&str> = stroke_styles.split(',').map(|s| s.trim()).collect();
+            if index < styles.len() {
+                return styles[index];
+            }
+        }
+    }
+    "solid"
 }
