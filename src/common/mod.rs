@@ -8,6 +8,8 @@ use nom::{
 use std::collections::HashMap;
 
 pub mod parser;
+pub mod renderer;
+pub mod string_parser;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChartConfig {

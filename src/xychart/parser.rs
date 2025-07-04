@@ -1,86 +1,23 @@
 use nom::{
-    bytes::complete::{tag, take_until},
+    bytes::complete::tag,
     character::complete::{char, multispace0, space0},
     combinator::opt,
     multi::separated_list0,
-    sequence::{delimited, preceded, tuple},
+    sequence::{preceded, tuple},
     IResult,
 };
 
 use super::{Series, SeriesType, XAxis, XYChart, YAxis};
-use crate::common::{config_line, number};
+use crate::common::{
+    config_line, number,
+    string_parser::{parse_labels_list, quoted_string, take_until_any},
+};
 
 fn xy_header(input: &str) -> IResult<&str, Option<String>> {
     let (input, _) = tag("xychart-beta")(input)?;
     let (input, _) = multispace0(input)?;
     let (input, title) = opt(preceded(tag("title "), quoted_string))(input)?;
     Ok((input, title.map(|s| s.to_string())))
-}
-
-fn quoted_string(input: &str) -> IResult<&str, &str> {
-    delimited(char('"'), take_until("\""), char('"'))(input)
-}
-
-fn quoted_string_single(input: &str) -> IResult<&str, &str> {
-    delimited(char('\''), take_until("'"), char('\''))(input)
-}
-
-fn parse_label(input: &str) -> IResult<&str, String> {
-    let (input, _) = multispace0(input)?;
-
-    // Try parsing as double-quoted string
-    if let Ok((input, content)) = quoted_string(input) {
-        return Ok((input, content.to_string()));
-    }
-
-    // Try parsing as single-quoted string
-    if let Ok((input, content)) = quoted_string_single(input) {
-        return Ok((input, content.to_string()));
-    }
-
-    // Parse as unquoted string (until comma or closing bracket)
-    let (input, content) = take_until_any(&[',', ']'])(input)?;
-    Ok((input, content.trim().to_string()))
-}
-
-fn parse_labels_list(input: &str) -> IResult<&str, Vec<String>> {
-    let mut labels = Vec::new();
-    let mut remaining = input;
-
-    loop {
-        // Skip whitespace
-        let (input, _) = multispace0(remaining)?;
-        remaining = input;
-
-        // Check if we've reached the end bracket
-        if remaining.starts_with(']') {
-            break;
-        }
-
-        // Parse a label
-        let (input, label) = parse_label(remaining)?;
-        labels.push(label);
-        remaining = input;
-
-        // Skip whitespace
-        let (input, _) = multispace0(remaining)?;
-        remaining = input;
-
-        // Check for comma or end bracket
-        if remaining.starts_with(',') {
-            let (input, _) = char(',')(remaining)?;
-            remaining = input;
-        } else if remaining.starts_with(']') {
-            break;
-        } else {
-            return Err(nom::Err::Error(nom::error::Error::new(
-                remaining,
-                nom::error::ErrorKind::Char,
-            )));
-        }
-    }
-
-    Ok((remaining, labels))
 }
 
 fn x_axis_line(input: &str) -> IResult<&str, XAxis> {
@@ -91,26 +28,6 @@ fn x_axis_line(input: &str) -> IResult<&str, XAxis> {
     let (input, _) = char(']')(input)?;
 
     Ok((input, XAxis { labels }))
-}
-
-fn take_until_any(chars: &[char]) -> impl Fn(&str) -> IResult<&str, &str> + '_ {
-    move |input: &str| {
-        let mut end = 0;
-        for (i, ch) in input.char_indices() {
-            if chars.contains(&ch) {
-                break;
-            }
-            end = i + ch.len_utf8();
-        }
-        if end == 0 {
-            Err(nom::Err::Error(nom::error::Error::new(
-                input,
-                nom::error::ErrorKind::TakeUntil,
-            )))
-        } else {
-            Ok((&input[end..], &input[..end]))
-        }
-    }
 }
 
 fn y_axis_line(input: &str) -> IResult<&str, YAxis> {
@@ -134,6 +51,14 @@ fn y_axis_line(input: &str) -> IResult<&str, YAxis> {
     ))
 }
 
+fn legend_line(input: &str) -> IResult<&str, Vec<String>> {
+    let (input, _) = char('[')(input)?;
+    let (input, labels) = parse_labels_list(input)?;
+    let (input, _) = char(']')(input)?;
+
+    Ok((input, labels))
+}
+
 fn series_line(input: &str) -> IResult<&str, Series> {
     let (input, series_type_str) = take_until_any(&[' ', '\t'])(input)?;
     let (input, _) = space0(input)?;
@@ -150,8 +75,21 @@ fn series_line(input: &str) -> IResult<&str, Series> {
     Ok((input, Series { series_type, data }))
 }
 
-fn chart_content(input: &str) -> IResult<&str, (Option<String>, XAxis, YAxis, Vec<Series>)> {
+fn chart_content(
+    input: &str,
+) -> IResult<
+    &str,
+    (
+        Option<String>,
+        Option<Vec<String>>,
+        XAxis,
+        YAxis,
+        Vec<Series>,
+    ),
+> {
     let (input, title) = xy_header(input)?;
+    let (input, _) = multispace0(input)?;
+    let (input, legend) = opt(preceded(tuple((tag("legend"), space0)), legend_line))(input)?;
     let (input, _) = multispace0(input)?;
     let (input, x_axis) = x_axis_line(input)?;
     let (input, _) = multispace0(input)?;
@@ -159,13 +97,13 @@ fn chart_content(input: &str) -> IResult<&str, (Option<String>, XAxis, YAxis, Ve
     let (input, _) = multispace0(input)?;
     let (input, series) = separated_list0(multispace0, series_line)(input)?;
 
-    Ok((input, (title, x_axis, y_axis, series)))
+    Ok((input, (title, legend, x_axis, y_axis, series)))
 }
 
 pub fn parse_xychart(input: &str) -> IResult<&str, XYChart> {
     let (input, config) = opt(preceded(multispace0, config_line))(input)?;
     let (input, _) = multispace0(input)?;
-    let (input, (title, x_axis, y_axis, series)) = chart_content(input)?;
+    let (input, (title, legend, x_axis, y_axis, series)) = chart_content(input)?;
     let (input, _) = multispace0(input)?;
 
     Ok((
@@ -173,6 +111,7 @@ pub fn parse_xychart(input: &str) -> IResult<&str, XYChart> {
         XYChart {
             config,
             title,
+            legend,
             x_axis,
             y_axis,
             series,
@@ -183,6 +122,7 @@ pub fn parse_xychart(input: &str) -> IResult<&str, XYChart> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::common::string_parser::parse_label;
 
     #[test]
     fn test_parse_xychart() {

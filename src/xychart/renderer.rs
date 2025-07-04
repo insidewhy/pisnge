@@ -1,4 +1,5 @@
 use super::{SeriesType, XYChart};
+use crate::common::renderer::{calculate_legend_width, render_legend, LegendConfig};
 use crate::font::{load_system_font_bytes, measure_text_height, measure_text_width};
 use svg::node::element::{Group, Path, Rectangle, Style, Text};
 use svg::Document;
@@ -33,6 +34,23 @@ pub fn render_xychart_svg(
         .parse::<f32>()
         .unwrap_or(16.0);
     let axis_title_font_size = 16.0; // Match mermaid axis title size
+    let legend_font_size = get_theme_variable(xychart, "xyChart.legendFontSize", "17")
+        .parse::<f32>()
+        .unwrap_or(17.0);
+
+    // Calculate legend width if legend is present
+    let legend_config = LegendConfig {
+        font_name: font_name.to_string(),
+        font_size: legend_font_size as f64,
+        ..Default::default()
+    };
+
+    let (legend_width, chart_to_legend_gap) = if let Some(ref legend_labels) = xychart.legend {
+        let width = calculate_legend_width(legend_labels, &font_data, &legend_config);
+        (width, 20.0) // Width + gap between chart and legend
+    } else {
+        (0.0, 0.0)
+    };
 
     // Calculate title height and spacing
     let (title_height, title_to_chart_gap) = if xychart.title.is_some() {
@@ -104,7 +122,8 @@ pub fn render_xychart_svg(
     };
 
     // Calculate available space for the chart area
-    let chart_width = width as f64 - (margin * 2.0) - y_axis_label_space;
+    let chart_width =
+        width as f64 - (margin * 2.0) - y_axis_label_space - legend_width - chart_to_legend_gap;
     let chart_height =
         height as f64 - (margin * 2.0) - title_height - title_to_chart_gap - x_axis_label_space;
 
@@ -396,6 +415,24 @@ pub fn render_xychart_svg(
     main_group = main_group.add(y_axis_group);
 
     document = document.add(main_group);
+
+    // Add legend if present
+    if let Some(ref legend_labels) = xychart.legend {
+        // Collect colors for each series
+        let colors: Vec<String> = (0..legend_labels.len())
+            .map(|idx| get_color_for_series(&xychart, idx).to_string())
+            .collect();
+
+        // Calculate legend position
+        let legend_x = width as f64 - margin - legend_width;
+        let legend_y = chart_top + (chart_height / 2.0)
+            - (legend_labels.len() as f64 * legend_config.item_spacing / 2.0);
+
+        let legend_group =
+            render_legend(legend_labels, &colors, legend_x, legend_y, &legend_config);
+
+        document = document.add(legend_group);
+    }
 
     (document, width, height)
 }

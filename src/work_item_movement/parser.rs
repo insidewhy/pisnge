@@ -128,7 +128,11 @@ pub fn parse_work_item_movement(
 pub fn validate_work_item_movement(chart: &WorkItemMovement) -> Result<(), ValidationError> {
     for item in &chart.items {
         // Case-insensitive check for from_state
-        if !chart.columns.iter().any(|col| col.to_lowercase() == item.from_state.to_lowercase()) {
+        if !chart
+            .columns
+            .iter()
+            .any(|col| col.to_lowercase() == item.from_state.to_lowercase())
+        {
             return Err(ValidationError {
                 message: format!(
                     "Work item '{}' references column '{}' which does not exist. Available columns are: {:?}",
@@ -137,7 +141,11 @@ pub fn validate_work_item_movement(chart: &WorkItemMovement) -> Result<(), Valid
             });
         }
         // Case-insensitive check for to_state
-        if !chart.columns.iter().any(|col| col.to_lowercase() == item.to_state.to_lowercase()) {
+        if !chart
+            .columns
+            .iter()
+            .any(|col| col.to_lowercase() == item.to_state.to_lowercase())
+        {
             return Err(ValidationError {
                 message: format!(
                     "Work item '{}' references column '{}' which does not exist. Available columns are: {:?}",

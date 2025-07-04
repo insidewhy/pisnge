@@ -4,6 +4,7 @@ use crate::common::ChartConfig;
 pub struct XYChart {
     pub config: Option<ChartConfig>,
     pub title: Option<String>,
+    pub legend: Option<Vec<String>>,
     pub x_axis: XAxis,
     pub y_axis: YAxis,
     pub series: Vec<Series>,

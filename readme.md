@@ -126,12 +126,13 @@ xychart-beta
   bar [8.5, 7, 5, 3, 1]
 ```
 
-#### With Theme Configuration
+#### With Theme Configuration and Legend
 
 ```
 %%{init: {'theme': 'base', 'themeVariables': {"xyChart":{"plotColorPalette":"#ff8b00, #9c1de9"}}}}%%
 xychart-beta
   title "Issues in review or ready for QA"
+  legend [In Review, Ready for QA]
   x-axis [NP-213, NP-341, NP-481, NP-482, NP-420]
   y-axis "Number of days in status" 0 --> 10
   bar [2, 0, 6, 8, 9]
@@ -151,15 +152,9 @@ work-item-movement
   PJ-1 In Progress: 5 -> Draft: 8
 ```
 
-## Architecture
-
-- **Parser** (`src/parser.rs`): Uses nom to parse Mermaid pie chart syntax
-- **Renderer** (`src/renderer.rs`): Generates SVG using the `svg` crate
-- **Data Structures** (`src/lib.rs`): Defines `PieChart`, `PieChartData`, and `PieChartConfig`
-
 ## Differences to Mermaid
 
-This project currently only supports two types of charts and for all charts only the `base` theme is supported and the default colors are different.
+This project currently supports two types charts from mermaid and one new chart, for all charts only the `base` theme is supported with different default colors.
 
 ### Pie Charts
 
@@ -212,7 +207,4 @@ Contributions welcome! This library currently focuses on pie charts but could be
 
 ## Roadmap
 
-- [x] PNG output format
-- [ ] Additional Mermaid diagram types (xy chart is planned soon)
-- [ ] New diagram types not supported by mermaid
-- [ ] More theming options than provided by mermaid
+- [ ] Additional Mermaid diagram types
