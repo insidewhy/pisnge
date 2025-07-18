@@ -56,8 +56,14 @@ fn columns_line(input: &str) -> IResult<&str, Vec<String>> {
     Ok((input, columns))
 }
 
-fn number(input: &str) -> IResult<&str, i32> {
-    map(digit1, |s: &str| s.parse().unwrap())(input)
+fn number(input: &str) -> IResult<&str, f64> {
+    map(
+        recognize(tuple((
+            digit1,
+            opt(tuple((char('.'), digit1))),
+        ))),
+        |s: &str| s.parse().unwrap(),
+    )(input)
 }
 
 fn work_item_id(input: &str) -> IResult<&str, &str> {
@@ -68,7 +74,7 @@ fn work_item_id(input: &str) -> IResult<&str, &str> {
     )))(input)
 }
 
-fn state_with_points(input: &str) -> IResult<&str, (&str, i32)> {
+fn state_with_points(input: &str) -> IResult<&str, (&str, f64)> {
     let (input, state) = take_until(":")(input)?;
     let (input, _) = char(':')(input)?;
     let (input, _) = space0(input)?;
@@ -197,17 +203,17 @@ mod tests {
         let item = &chart.items[0];
         assert_eq!(item.id, "PJ-633");
         assert_eq!(item.from_state, "Not Existing");
-        assert_eq!(item.from_points, 0);
+        assert_eq!(item.from_points, 0.0);
         assert_eq!(item.to_state, "Draft");
-        assert_eq!(item.to_points, 1);
-        assert_eq!(item.points_change(), 1);
+        assert_eq!(item.to_points, 1.0);
+        assert_eq!(item.points_change(), 1.0);
 
         let item = &chart.items[2];
         assert_eq!(item.id, "PJ-1");
         assert_eq!(item.from_state, "In Progress");
-        assert_eq!(item.from_points, 5);
+        assert_eq!(item.from_points, 5.0);
         assert_eq!(item.to_state, "Draft");
-        assert_eq!(item.to_points, 8);
-        assert_eq!(item.points_change(), 3);
+        assert_eq!(item.to_points, 8.0);
+        assert_eq!(item.points_change(), 3.0);
     }
 }

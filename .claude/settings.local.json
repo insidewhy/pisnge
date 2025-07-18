@@ -13,7 +13,9 @@
       "Bash(mkdir:*)",
       "Bash(mv:*)",
       "Bash(./target/debug/pisnge:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(rustc:*)",
+      "Bash(./test_parser_fractional)"
     ],
     "deny": []
   }

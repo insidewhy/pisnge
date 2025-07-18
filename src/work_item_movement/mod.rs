@@ -12,13 +12,13 @@ pub struct WorkItemMovement {
 pub struct WorkItem {
     pub id: String,
     pub from_state: String,
-    pub from_points: i32,
+    pub from_points: f64,
     pub to_state: String,
-    pub to_points: i32,
+    pub to_points: f64,
 }
 
 impl WorkItem {
-    pub fn points_change(&self) -> i32 {
+    pub fn points_change(&self) -> f64 {
         self.to_points - self.from_points
     }
 }

@@ -3,6 +3,14 @@ use crate::font::{load_system_font_bytes, measure_text_height, measure_text_widt
 use svg::node::element::{Circle, Group, Line, Path, Rectangle, Style, Text};
 use svg::Document;
 
+fn format_points(points: f64) -> String {
+    if points.fract() == 0.0 {
+        format!("{:.0}", points)
+    } else {
+        points.to_string()
+    }
+}
+
 pub fn render_work_item_movement_svg(
     chart: &WorkItemMovement,
     default_width: u32,
@@ -263,7 +271,7 @@ pub fn render_work_item_movement_svg(
 
             // Add from points text in start circle
             main_group = main_group.add(
-                Text::new(&item.from_points.to_string())
+                Text::new(&format_points(item.from_points))
                     .set("class", "circle-text")
                     .set("x", x)
                     .set("y", y)
@@ -283,7 +291,7 @@ pub fn render_work_item_movement_svg(
 
             // Add to points text in end circle
             main_group = main_group.add(
-                Text::new(&item.to_points.to_string())
+                Text::new(&format_points(item.to_points))
                     .set("class", "circle-text")
                     .set("x", x)
                     .set("y", end_y)
@@ -327,11 +335,11 @@ pub fn render_work_item_movement_svg(
 
             let mut label_text = item.id.clone();
             let points_change = item.points_change();
-            if points_change != 0 {
+            if points_change != 0.0 {
                 label_text.push_str(&format!(
                     ": {}{}",
-                    if points_change > 0 { "+" } else { "" },
-                    points_change
+                    if points_change > 0.0 { "+" } else { "" },
+                    format_points(points_change)
                 ));
             }
 
@@ -376,7 +384,7 @@ pub fn render_work_item_movement_svg(
 
             // Add from points text in start circle
             main_group = main_group.add(
-                Text::new(&item.from_points.to_string())
+                Text::new(&format_points(item.from_points))
                     .set("class", "circle-text")
                     .set("x", from_x)
                     .set("y", y)
@@ -395,7 +403,7 @@ pub fn render_work_item_movement_svg(
 
             // Add to points text in end circle
             main_group = main_group.add(
-                Text::new(&item.to_points.to_string())
+                Text::new(&format_points(item.to_points))
                     .set("class", "circle-text")
                     .set("x", to_x)
                     .set("y", y)
@@ -463,11 +471,11 @@ pub fn render_work_item_movement_svg(
 
             let mut label_text = item.id.clone();
             let points_change = item.points_change();
-            if points_change != 0 {
+            if points_change != 0.0 {
                 label_text.push_str(&format!(
                     ": {}{}",
-                    if points_change > 0 { "+" } else { "" },
-                    points_change
+                    if points_change > 0.0 { "+" } else { "" },
+                    format_points(points_change)
                 ));
             }
 
