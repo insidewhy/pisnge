@@ -1,4 +1,6 @@
 /target
-/examples/*.png
-/examples/*.svg
-/examples/mermaid
+node_modules
+validators.ts
+bin/bagsakan
+*.swp
+.DS_Store

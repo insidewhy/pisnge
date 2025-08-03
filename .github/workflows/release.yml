@@ -3,127 +3,335 @@ name: Build and Release
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+    tags:
+      - 'v*'
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    name: Build - ${{ matrix.platform.name }}
+    runs-on: ${{ matrix.platform.os }}
+    container: ${{ matrix.platform.container || '' }}
+
+    strategy:
+      matrix:
+        platform:
+          - name: linux-glibc
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            binary_name: pisnge
+
+          - name: linux-musl
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
+            binary_name: pisnge
+            container: rust:alpine
+
+          - name: macos-x64
+            os: macos-latest
+            target: x86_64-apple-darwin
+            binary_name: pisnge
+
+          - name: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            binary_name: pisnge
 
     permissions:
       contents: write
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+      - name: Install bash and GNU tar for Alpine
+        if: matrix.platform.target == 'x86_64-unknown-linux-musl'
+        run: |
+          apk add --no-cache bash tar
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          libfontconfig1-dev \
-          libfreetype6-dev \
-          pkg-config \
-          fonts-liberation
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform.target }}
 
-    - name: Cache cargo dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux' && matrix.platform.target != 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            pkg-config \
+            fonts-liberation
 
-    - name: Run tests
-      run: cargo test --verbose
+      - name: Install musl dependencies
+        if: matrix.platform.target == 'x86_64-unknown-linux-musl'
+        run: |
+          # Alpine Linux uses musl by default - install dev and static versions
+          apk add --no-cache \
+            fontconfig-dev \
+            fontconfig-static \
+            freetype-dev \
+            freetype-static \
+            pkgconfig \
+            build-base \
+            ttf-liberation \
+            expat-static \
+            libpng-static \
+            bzip2-static \
+            brotli-static \
+            zlib-static
+          # Ensure static linking and tell pkg-config to use static libraries
+          echo "PKG_CONFIG_ALL_STATIC=1" >> $GITHUB_ENV
+          echo "RUSTFLAGS=-C target-feature=+crt-static -C link-arg=-static" >> $GITHUB_ENV
 
-    - name: Build release binary
-      run: cargo build --release --verbose
+      - name: Cache cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ matrix.platform.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.platform.target }}-cargo-
 
-    - name: Strip binary
-      run: strip target/release/pisnge
+      - name: Run tests
+        if: matrix.platform.target == 'x86_64-unknown-linux-gnu' || matrix.platform.target == 'x86_64-apple-darwin'
+        run: cargo test --verbose --target ${{ matrix.platform.target }}
 
-    - name: Test binary
-      run: |
-        ./target/release/pisnge --help
+      - name: Build release binary
+        run: cargo build --release --verbose --target ${{ matrix.platform.target }}
 
-    - name: Create release artifact
-      if: github.ref == 'refs/heads/main'
-      run: |
-        mkdir -p dist
-        cp target/release/pisnge dist/pisnge-ubuntu-22.04
-        chmod +x dist/pisnge-ubuntu-22.04
+      - name: Strip binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          if command -v strip &> /dev/null; then
+            strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.binary_name }}
+          fi
 
-    - name: Upload binary artifact
-      if: github.ref == 'refs/heads/main'
-      uses: actions/upload-artifact@v4
-      with:
-        name: pisnge-ubuntu-22.04
-        path: |
-          dist/pisnge-ubuntu-22.04
-        retention-days: 90
+      - name: Strip binary (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.binary_name }}
 
-    - name: Create Release
-      if: github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: build-${{ github.sha }}
-        name: "Build ${{ github.sha }}"
-        body: |
-          Automated build from commit ${{ github.sha }}
+      - name: Test binary
+        if: matrix.platform.target == 'x86_64-unknown-linux-gnu' || matrix.platform.target == 'x86_64-apple-darwin'
+        run: |
+          ./target/${{ matrix.platform.target }}/release/${{ matrix.platform.binary_name }} --help
 
-          **Ubuntu 22.04 Binary**: `pisnge-ubuntu-22.04`
+      - name: Create release artifact
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.binary_name }} dist/pisnge-${{ matrix.platform.name }}
+          chmod +x dist/pisnge-${{ matrix.platform.name }}
 
-          ## Usage
-          ```bash
-          # Download the binary
-          wget https://github.com/${{ github.repository }}/releases/build-${{ github.sha }}/download/pisnge-ubuntu-22.04
+      - name: Upload binary artifact
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: pisnge-${{ matrix.platform.name }}
+          path: |
+            dist/pisnge-${{ matrix.platform.name }}
+          retention-days: 90
 
-          # Make it executable
-          chmod +x pisnge-ubuntu-22.04
+  release:
+    name: Create Release
+    needs: build
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
 
-          # Use it
-          ./pisnge-ubuntu-22.04 --help
-          ```
-        files: |
-          dist/pisnge-ubuntu-22.04
-        draft: false
-        prerelease: true
+    permissions:
+      contents: write
 
-    - name: Update Latest Release
-      if: github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: latest
-        name: "Latest Release"
-        body: |
-          Latest automated build from commit ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
 
-          **Ubuntu 22.04 Binary**: `pisnge-ubuntu-22.04`
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
-          ## Installation
-          ```bash
-          # Download the latest binary
-          wget https://github.com/${{ github.repository }}/releases/latest/download/pisnge-ubuntu-22.04
+      # Versioned release for tags
+      - name: Delete existing release if exists
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: dev-drprasad/delete-tag-and-release@v1.0
+        with:
+          tag_name: ${{ github.ref_name }}
+          delete_release: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 
-          # Make it executable
-          chmod +x pisnge-ubuntu-22.04
+      - name: Create Versioned Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 'Release ${{ github.ref_name }}'
+          body: |
+            ## Release ${{ github.ref_name }}
 
-          # Use it
-          ./pisnge-ubuntu-22.04 --help
-          ```
-        files: |
-          dist/pisnge-ubuntu-22.04
-        draft: false
-        prerelease: false
+            ### Available Binaries
+            - **Linux (glibc)**: `pisnge-linux-glibc` - For most Linux distributions
+            - **Linux (musl)**: `pisnge-linux-musl` - For Alpine Linux and static linking
+            - **macOS (Intel)**: `pisnge-macos-x64` - For Intel-based Macs
+            - **macOS (Apple Silicon)**: `pisnge-macos-arm64` - For M1/M2/M3 Macs
+
+            ### Installation
+
+            #### Linux (most distributions)
+            ```bash
+            curl -L -o pisnge https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/pisnge-linux-glibc
+            chmod +x pisnge
+            sudo mv pisnge /usr/local/bin/
+            ```
+
+            #### macOS (Intel)
+            ```bash
+            curl -L -o pisnge https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/pisnge-macos-x64
+            chmod +x pisnge
+            sudo mv pisnge /usr/local/bin/
+            ```
+
+            #### macOS (Apple Silicon)
+            ```bash
+            curl -L -o pisnge https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/pisnge-macos-arm64
+            chmod +x pisnge
+            sudo mv pisnge /usr/local/bin/
+            ```
+
+            #### Alpine Linux / Docker
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/pisnge-linux-musl
+            chmod +x pisnge-linux-musl
+            mv pisnge-linux-musl /usr/local/bin/pisnge
+            ```
+          files: |
+            dist/pisnge-*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+      # Development release for main branch
+      - name: Delete existing development release if exists
+        if: github.ref == 'refs/heads/main'
+        uses: dev-drprasad/delete-tag-and-release@v1.0
+        with:
+          tag_name: build-${{ github.sha }}
+          delete_release: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Create Development Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.sha }}
+          name: 'Build ${{ github.sha }}'
+          body: |
+            Automated build from commit ${{ github.sha }}
+
+            ## Available Binaries
+            - **Linux (glibc)**: `pisnge-linux-glibc` - For most Linux distributions
+            - **Linux (musl)**: `pisnge-linux-musl` - For Alpine Linux and static linking
+            - **macOS (Intel)**: `pisnge-macos-x64` - For Intel-based Macs
+            - **macOS (Apple Silicon)**: `pisnge-macos-arm64` - For M1/M2/M3 Macs
+
+            ## Installation
+
+            ### Linux (glibc)
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/build-${{ github.sha }}/pisnge-linux-glibc
+            chmod +x pisnge-linux-glibc
+            ./pisnge-linux-glibc --help
+            ```
+
+            ### Linux (musl)
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/build-${{ github.sha }}/pisnge-linux-musl
+            chmod +x pisnge-linux-musl
+            ./pisnge-linux-musl --help
+            ```
+
+            ### macOS (Intel)
+            ```bash
+            curl -L -o pisnge https://github.com/${{ github.repository }}/releases/download/build-${{ github.sha }}/pisnge-macos-x64
+            chmod +x pisnge
+            ./pisnge --help
+            ```
+
+            ### macOS (Apple Silicon)
+            ```bash
+            curl -L -o pisnge https://github.com/${{ github.repository }}/releases/download/build-${{ github.sha }}/pisnge-macos-arm64
+            chmod +x pisnge
+            ./pisnge --help
+            ```
+          files: |
+            dist/pisnge-*
+          draft: false
+          prerelease: true
+
+      - name: Delete existing latest release if exists
+        if: github.ref == 'refs/heads/main'
+        uses: dev-drprasad/delete-tag-and-release@v1.0
+        with:
+          tag_name: latest
+          delete_release: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Update Latest Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: 'Latest Release'
+          body: |
+            Latest automated build from commit ${{ github.sha }}
+
+            ## Available Binaries
+            - **Linux (glibc)**: `pisnge-linux-glibc` - For most Linux distributions
+            - **Linux (musl)**: `pisnge-linux-musl` - For Alpine Linux and static linking
+            - **macOS (Intel)**: `pisnge-macos-x64` - For Intel-based Macs
+            - **macOS (Apple Silicon)**: `pisnge-macos-arm64` - For M1/M2/M3 Macs
+
+            ## Quick Install
+
+            ### Linux (most distributions)
+            ```bash
+            curl -L -o pisnge https://github.com/${{ github.repository }}/releases/latest/download/pisnge-linux-glibc
+            chmod +x pisnge
+            sudo mv pisnge /usr/local/bin/
+            ```
+
+            ### macOS (Intel)
+            ```bash
+            curl -L -o pisnge https://github.com/${{ github.repository }}/releases/latest/download/pisnge-macos-x64
+            chmod +x pisnge
+            sudo mv pisnge /usr/local/bin/
+            ```
+
+            ### macOS (Apple Silicon)
+            ```bash
+            curl -L -o pisnge https://github.com/${{ github.repository }}/releases/latest/download/pisnge-macos-arm64
+            chmod +x pisnge
+            sudo mv pisnge /usr/local/bin/
+            ```
+
+            ### Alpine Linux / Docker
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/latest/download/pisnge-linux-musl
+            chmod +x pisnge-linux-musl
+            mv pisnge-linux-musl /usr/local/bin/pisnge
+            ```
+          files: |
+            dist/pisnge-*
+          draft: false
+          prerelease: false

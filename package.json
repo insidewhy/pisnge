@@ -1,0 +1,40 @@
+{
+  "name": "pisnge",
+  "version": "0.2.4",
+  "description": "A Rust-based diagram rendering library compatible with mermaid",
+  "bin": {
+    "pisnge": "./bin/pisnge"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js",
+    "format-check": "prettier --check .",
+    "format": "pnpm format-check --write && cargo fmt"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/insidewhy/pisnge.git"
+  },
+  "keywords": [
+    "typescript",
+    "validation",
+    "interface",
+    "type-safety",
+    "code-generation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/insidewhy/pisnge/issues"
+  },
+  "homepage": "https://github.com/insidewhy/pisnge#readme",
+  "files": [
+    "bin",
+    "scripts"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}
