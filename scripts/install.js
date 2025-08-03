@@ -66,9 +66,9 @@ async function install() {
   try {
     const platform = getPlatform()
     const { version } = package
-    const binaryName = `bagsakan-${platform}`
+    const binaryName = `pisnge-${platform}`
 
-    console.log(`Installing bagsakan ${version} for ${platform}...`)
+    console.log(`Installing pisnge ${version} for ${platform}...`)
 
     // Create bin directory
     const binDir = path.join(__dirname, '..', 'bin')
@@ -76,7 +76,7 @@ async function install() {
       fs.mkdirSync(binDir, { recursive: true })
     }
 
-    const binaryPath = path.join(binDir, 'bagsakan')
+    const binaryPath = path.join(binDir, 'pisnge')
 
     // Construct download URL
     const repo = package.repository.url.match(/github\.com[:/](.+?)\.git/)[1]
@@ -90,10 +90,10 @@ async function install() {
     // Make it executable
     fs.chmodSync(binaryPath, '755')
 
-    console.log('✓ bagsakan installed successfully!')
+    console.log('✓ pisnge installed successfully!')
     console.log(`Binary location: ${binaryPath}`)
   } catch (error) {
-    console.error('Failed to install bagsakan:', error.message)
+    console.error('Failed to install pisnge:', error.message)
     console.error('\nYou can manually download the binary from:')
     console.error(
       `https://github.com/${package.repository.url.match(/github\.com[:/](.+?)\.git/)[1]}/releases`,
